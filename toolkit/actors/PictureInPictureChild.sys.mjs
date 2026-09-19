@@ -2026,6 +2026,40 @@ export class PictureInPictureChild extends JSWindowActorChild {
     return true;
   }
 
+    /**
+   * Returns how many seconds of media are buffered ahead of the current
+   * playback position, within the buffered range that contains it.
+   * Returns undefined if the feature is disabled or the info is unavailable.
+   */
+  getBufferedAhead(video, currentTime) {
+    if (
+      !video ||
+      !Services.prefs.getBoolPref(
+        "media.videocontrols.picture-in-picture.show-buffered.enabled",
+        true
+      )
+    ) {
+      return undefined;
+    }
+    try {
+      let buffered = video.buffered;
+      const TOLERANCE = 0.5;
+      for (let i = 0; i < buffered.length; i++) {
+        let start = buffered.start(i);
+        let end = buffered.end(i);
+        if (
+          currentTime >= start - TOLERANCE &&
+          currentTime <= end + TOLERANCE
+        ) {
+          return Math.max(0, end - currentTime);
+        }
+      }
+      return 0;
+    } catch (e) {
+      return undefined;
+    }
+  }
+  
   handleEvent(event) {
     switch (event.type) {
       case "MozStopPictureInPicture": {
@@ -2144,7 +2178,8 @@ export class PictureInPictureChild extends JSWindowActorChild {
         break;
       }
       case "timeupdate":
-      case "durationchange": {
+      case "durationchange":
+      case "progress": {
         let video = this.getWeakVideo();
         let currentTime = this.videoWrapper.getCurrentTime(video);
         let duration = this.videoWrapper.getDuration(video);
@@ -2153,6 +2188,7 @@ export class PictureInPictureChild extends JSWindowActorChild {
           currentTime,
           duration
         );
+        let bufferedAhead = this.getBufferedAhead(video, currentTime);
         // There's no point in sending this message unless we have a
         // reasonable timestamp.
         if (timestamp !== undefined && lazy.IMPROVED_CONTROLS_ENABLED_PREF) {
@@ -2161,6 +2197,7 @@ export class PictureInPictureChild extends JSWindowActorChild {
             {
               scrubberPosition,
               timestamp,
+              bufferedAhead,
             }
           );
         }
@@ -2422,6 +2459,7 @@ export class PictureInPictureChild extends JSWindowActorChild {
       originatingVideo.addEventListener("resize", this);
       originatingVideo.addEventListener("emptied", this);
       originatingVideo.addEventListener("timeupdate", this);
+      originatingVideo.addEventListener("progress", this);
 
       if (lazy.DISPLAY_TEXT_TRACKS_PREF) {
         this.setupTextTracks(originatingVideo);
@@ -2475,6 +2513,7 @@ export class PictureInPictureChild extends JSWindowActorChild {
       originatingVideo.removeEventListener("resize", this);
       originatingVideo.removeEventListener("emptied", this);
       originatingVideo.removeEventListener("timeupdate", this);
+      originatingVideo.removeEventListener("progress", this);
 
       if (lazy.DISPLAY_TEXT_TRACKS_PREF) {
         this.removeTextTracks(originatingVideo);
