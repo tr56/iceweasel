@@ -124,7 +124,10 @@ browser {
 
 .start-controls {
   display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
   justify-self: start;
+  column-gap: 8px;
 }
 
 .center-controls {
@@ -292,7 +295,8 @@ body:not(:fullscreen) #controls:hover .control-item:not(:hover),
 }
 
 /* For readability, timestamp should maintain full opacity when visible */
-body:not(:fullscreen) #controls:hover #timestamp {
+body:not(:fullscreen) #controls:hover #timestamp,
+body:not(:fullscreen) #controls:hover #buffered-ahead {
   opacity: 1;
 }
 
@@ -644,10 +648,22 @@ input:checked + .slider::before {
   grid-area: timestamp;
 }
 
+#buffered-ahead {
+  align-self: center;
+  color: #bfbfc9;
+  cursor: default;
+  font-family: system-ui;
+  font-size: 0.9em;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  white-space: nowrap;
+}
+
 #timestamp::after {
   background: unset;
   content: unset;
 }
+
 
 @media (width <= 630px) {
   #audio-scrubber {
@@ -695,7 +711,8 @@ input:checked + .slider::before {
 }
 
 @media (width <= 440px) {
-  #timestamp {
+  #timestamp,
+  #buffered-ahead {
     display: none;
   }
 }
