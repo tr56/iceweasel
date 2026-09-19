@@ -246,6 +246,7 @@ export class PictureInPictureLauncherChild extends JSWindowActorChild {
 
     let timestamp = undefined;
     let scrubberPosition = undefined;
+    let bufferedAhead = undefined;
 
     if (lazy.IMPROVED_CONTROLS_ENABLED_PREF) {
       timestamp = PictureInPictureChild.videoWrapper.formatTimestamp(
@@ -260,8 +261,13 @@ export class PictureInPictureLauncherChild extends JSWindowActorChild {
           ? undefined
           : PictureInPictureChild.videoWrapper.getCurrentTime(video) /
             PictureInPictureChild.videoWrapper.getDuration(video);
-    }
 
+      bufferedAhead = this.getBufferedAhead(
+        video,
+        PictureInPictureChild.videoWrapper.getCurrentTime(video)
+      );
+    }
+    
     // All other requests to toggle PiP should open a new PiP
     // window
     const videoRef = lazy.ContentDOMReference.get(video);
@@ -282,6 +288,10 @@ export class PictureInPictureLauncherChild extends JSWindowActorChild {
       webVTTSubtitles: !!video.textTracks?.length,
       scrubberPosition,
       timestamp,
+      volume: PictureInPictureChild.videoWrapper.getVolume(video),
+      scrubberPosition,
+      timestamp,
+      bufferedAhead,
       volume: PictureInPictureChild.videoWrapper.getVolume(video),
       autoFocus,
     });
@@ -2026,7 +2036,7 @@ export class PictureInPictureChild extends JSWindowActorChild {
     return true;
   }
 
-    /**
+  /**
    * Returns how many seconds of media are buffered ahead of the current
    * playback position, within the buffered range that contains it.
    * Returns undefined if the feature is disabled or the info is unavailable.
