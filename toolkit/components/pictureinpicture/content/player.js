@@ -681,6 +681,41 @@ let Player = {
     this.timestamp.hidden = timestamp === undefined;
   },
 
+    setBufferedAhead(seconds) {
+    if (
+      seconds === undefined ||
+      !Number.isFinite(seconds) ||
+      seconds < 0
+    ) {
+      this.bufferedAhead.textContent = "";
+      this.bufferedAhead.hidden = true;
+      return;
+    }
+
+    let totalSeconds = Math.floor(seconds);
+    let hours = Math.floor(totalSeconds / 3600);
+    let minutes = Math.floor((totalSeconds % 3600) / 60);
+    let secs = totalSeconds % 60;
+
+    let formatted;
+    if (hours > 0) {
+      formatted =
+        hours +
+        ":" +
+        String(minutes).padStart(2, "0") +
+        ":" +
+        String(secs).padStart(2, "0");
+    } else {
+      formatted =
+        String(minutes).padStart(2, "0") +
+        ":" +
+        String(secs).padStart(2, "0");
+    }
+
+    this.bufferedAhead.textContent = "+" + formatted;
+    this.bufferedAhead.hidden = false;
+  },
+
   setVolume(volume) {
     if (volume < Number.EPSILON) {
       this.actor.sendAsyncMessage("PictureInPicture:Mute");
@@ -1258,6 +1293,11 @@ let Player = {
   get timestamp() {
     delete this.timestamp;
     return (this.timestamp = document.getElementById("timestamp"));
+  },
+
+  get bufferedAhead() {
+    delete this.bufferedAhead;
+    return (this.bufferedAhead = document.getElementById("buffered-ahead"));
   },
 
   get controlsBottom() {
