@@ -159,9 +159,64 @@ jobs:
           wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/wine.tar.xz?viasf=1 -O wine.tar.xz
           tar Jxf wine.tar.xz -C "$MOZ_FETCHES_DIR"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/winsdk2026.tar.xz?viasf=1 -O winsdk.tar.xz
-          tar Jxf winsdk.tar.xz -C "$MOZ_FETCHES_DIR"
+                    wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/winsdk2026.tar.xz?viasf=1 -O winsdk.tar.xz
+
+          # libportable expects Windows SDK here:
+          # /builds/worker/fetches/vs/Windows Kits/10/Include/10.0.28000.0/um/windows.h
+          mkdir -p "$MOZ_FETCHES_DIR/vs"
+          tar Jxf winsdk.tar.xz -C "$MOZ_FETCHES_DIR/vs"
+
+          EXPECTED_WINSDK_HEADER="$MOZ_FETCHES_DIR/vs/Windows Kits/10/Include/10.0.28000.0/um/windows.h"
+
+          if [ ! -f "$EXPECTED_WINSDK_HEADER" ]; then
+            echo "Windows SDK header not found at expected path:"
+            echo "$EXPECTED_WINSDK_HEADER"
+            echo "Trying to locate Windows Kits directory..."
+
+            FOUND_WINSDK_HEADER=$(
+              find "$MOZ_FETCHES_DIR/vs" "$MOZ_FETCHES_DIR" \
+                -type f \
+                -path "*/Windows Kits/10/Include/*/um/windows.h" \
+                -print \
+                -quit || true
+            )
+
+            if [ -z "$FOUND_WINSDK_HEADER" ]; then
+              echo "windows.h was not found anywhere under MOZ_FETCHES_DIR."
+              echo "Directory listing:"
+              find "$MOZ_FETCHES_DIR" -maxdepth 4 -type d | sort
+              exit 1
+            fi
+
+            echo "Found windows.h at:"
+            echo "$FOUND_WINSDK_HEADER"
+
+            FOUND_WINDOWS_KITS_DIR="${FOUND_WINSDK_HEADER%%/Windows Kits/*}/Windows Kits"
+
+            echo "Detected Windows Kits directory:"
+            echo "$FOUND_WINDOWS_KITS_DIR"
+
+            if [ "$FOUND_WINDOWS_KITS_DIR" != "$MOZ_FETCHES_DIR/vs/Windows Kits" ]; then
+              rm -rf "$MOZ_FETCHES_DIR/vs/Windows Kits"
+              cp -a "$FOUND_WINDOWS_KITS_DIR" "$MOZ_FETCHES_DIR/vs/"
+            fi
+          fi
+
+          if [ ! -f "$EXPECTED_WINSDK_HEADER" ]; then
+            echo "Expected Windows SDK header is still missing:"
+            echo "$EXPECTED_WINSDK_HEADER"
+            echo "Available windows.h files:"
+            find "$MOZ_FETCHES_DIR" \
+              -type f \
+              -path "*/Windows Kits/10/Include/*/um/windows.h" \
+              -print || true
+            exit 1
+          fi
+
           chmod -R 755 "$MOZ_FETCHES_DIR/vs"
+
+          echo "Windows SDK layout OK:"
+          ls -l "$EXPECTED_WINSDK_HEADER"
 
           wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/winappsdk-x64.tar.xz?viasf=1 -O winappsdk-x64.tar.xz
           tar Jxf winappsdk-x64.tar.xz -C "$MOZ_FETCHES_DIR"
