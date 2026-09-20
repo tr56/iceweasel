@@ -1,7 +1,7 @@
-name: Iceweasel generate
-on: 
-  repository_dispatch:
-    types: [pgo_gen_154]
+name: Build Iceweasel 154 PiP Buffer
+
+on:
+  workflow_dispatch:
 env:
   APP_NAME: Iceweasel
   ACTIONS_PGO_GENERATE: 2
@@ -15,8 +15,6 @@ jobs:
     timeout-minutes: 480
     steps:
     - uses: actions/checkout@v6
-      with:
-        ref: iceweasel_release
 
     - uses: yxl0756/gha-cleanup@v1
       with:
