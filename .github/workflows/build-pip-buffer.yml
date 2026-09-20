@@ -507,6 +507,49 @@ jobs:
           clang-cl --version
 
           echo
+          echo "=== Detect MSVC include directory ==="
+
+          MSVC_INCLUDE_DIR=$(
+            find "$MOZ_FETCHES_DIR/vs/VC/Tools/MSVC" \
+              -mindepth 2 \
+              -maxdepth 2 \
+              -type d \
+              -name include \
+              -print \
+              | sort -V \
+              | tail -1
+          )
+
+          if [ -z "$MSVC_INCLUDE_DIR" ]; then
+            echo "ERROR: MSVC include directory was not found."
+
+            find "$MOZ_FETCHES_DIR/vs/VC/Tools/MSVC" \
+              -maxdepth 4 \
+              -type d \
+              -print | sort || true
+
+            exit 1
+          fi
+
+          echo "MSVC include directory:"
+          echo "$MSVC_INCLUDE_DIR"
+
+          if [ ! -f "$MSVC_INCLUDE_DIR/excpt.h" ]; then
+            echo "ERROR: excpt.h was not found in MSVC include directory:"
+            echo "$MSVC_INCLUDE_DIR"
+
+            find "$MOZ_FETCHES_DIR/vs/VC/Tools/MSVC" \
+              -type f \
+              -iname "excpt.h" \
+              -print || true
+
+            exit 1
+          fi
+
+          echo "Found excpt.h:"
+          ls -lh "$MSVC_INCLUDE_DIR/excpt.h"
+
+          echo
           echo "=== Check Windows SDK header before libportable build ==="
 
           WINDOWS_H="$MOZ_FETCHES_DIR/vs/Windows Kits/10/Include/$EXPECTED_WINSDK_VERSION/um/windows.h"
@@ -526,16 +569,18 @@ jobs:
           ls -lh "$WINDOWS_H"
 
           echo
-          echo "=== Test clang-cl can include windows.h without VFS overlay ==="
+          echo "=== Test clang-cl can include windows.h + excpt.h ==="
 
           cat > /tmp/test-windows-h.c <<'EOF'
           #include <windows.h>
+          #include <excpt.h>
           int main(void) { return 0; }
           EOF
 
           clang-cl \
             -c /tmp/test-windows-h.c \
             -o /tmp/test-windows-h.obj \
+            -I"$MSVC_INCLUDE_DIR" \
             -I"$MOZ_FETCHES_DIR/vs/Windows Kits/10/Include/$EXPECTED_WINSDK_VERSION/shared" \
             -I"$MOZ_FETCHES_DIR/vs/Windows Kits/10/Include/$EXPECTED_WINSDK_VERSION/um" \
             -I"$MOZ_FETCHES_DIR/vs/Windows Kits/10/Include/$EXPECTED_WINSDK_VERSION/ucrt"
@@ -564,117 +609,23 @@ jobs:
             -E "ivfsoverlay|overlay\.yaml" \
             . || true
 
-          find . \
-            -type f \
-            \( -name "Makefile" -o -name "*.mk" -o -name "build" \) \
-            -print0 \
-            | xargs -0 sed -i \
-              's#-Xclang -ivfsoverlay -Xclang /builds/worker/fetches/vs/overlay.yaml##g'
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
 
-          echo
-          echo "After patching libportable files:"
-          grep -R \
-            -n \
-            -E "ivfsoverlay|overlay\.yaml" \
-            . || true
+            echo "Removing VFS overlay from: $file"
 
-          echo
-          echo "=== Building libportable ==="
-
-          ./build PGO_GEN=1
-
-          echo
-          echo "=== Installing libportable ==="
-
-          ./build install
-
-          cd "$MOZ_FETCHES_DIR"
-          rm -rf libportable
-        shell: bash
-
-      - name: start building win64
-        timeout-minutes: 180
-        id: win64_building
-        run: |
-          set -e
-
-          echo "Disk space before Iceweasel build:"
-          df -hT
-
-          cd "$GITHUB_WORKSPACE"
-
-          echo
-          echo "Source branch/ref:"
-          echo "$GITHUB_REF"
-
-          echo
-          echo "Source commit:"
-          git rev-parse HEAD
-
-          echo
-          echo "Windows SDK:"
-          echo "$WINSDK_VERSION"
-
-          echo
-          echo "Compatibility Windows SDK:"
-          echo "$EXPECTED_WINSDK_VERSION"
-
-          echo
-          echo "Verify PiP modification:"
-          grep -n \
-            'getBufferedAhead' \
-            toolkit/actors/PictureInPictureChild.sys.mjs \
-            | head
-
-          chmod +x ./fx_pgo_generate.sh
-
-          ./fx_pgo_generate.sh 64
-
-          dist_dir=$(
-            cd "$GITHUB_WORKSPACE/../obju64-release/dist"
-            pwd
+            sed -i \
+              's#-Xclang -ivfsoverlay -Xclang /builds/worker/fetches/vs/overlay.yaml##g' \
+              "$file"
+          done < <(
+            grep -RIl \
+              --exclude-dir=.git \
+              'ivfsoverlay\|overlay\.yaml' \
+              . || true
           )
 
-          echo "MY_BITS64=win64" >> "$GITHUB_ENV"
-          echo "MY_DIST64=$dist_dir" >> "$GITHUB_ENV"
-
           echo
-          echo "Build output:"
-          ls -lah "$dist_dir"
+          echo "=== Add MSVC include path to libportable build ==="
 
-          echo
-          echo "Disk space after Iceweasel build:"
-          df -hT
-        shell: bash
-
-      - name: Verify package exists
-        run: |
-          set -e
-
-          PACKAGE="${MY_DIST64}/${APP_NAME}-${MY_VER}.en-US.${MY_BITS64}.7z"
-
-          echo "Expected package:"
-          echo "$PACKAGE"
-
-          if [ ! -f "$PACKAGE" ]; then
-            echo
-            echo "ERROR: package was not found."
-
-            echo
-            echo "Contents of dist:"
-            ls -lah "$MY_DIST64" || true
-
-            exit 1
-          fi
-
-          echo
-          echo "Package found:"
-          ls -lh "$PACKAGE"
-        shell: bash
-
-      - name: Upload Iceweasel PiP Buffer build
-        uses: yxl0756/upload-artifact@v7
-        with:
-          path: ${{ env.MY_DIST64 }}/${{ env.APP_NAME }}-${{ env.MY_VER }}.en-US.${{ env.MY_BITS64 }}.7z
-          name: Iceweasel-${{ env.MY_VER }}-PiP-Buffer-win64
-          compression-level: 0
+          while IFS= read -r file; do
+            [ -z "$file" ] 
