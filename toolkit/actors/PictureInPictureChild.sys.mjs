@@ -248,7 +248,7 @@ export class PictureInPictureLauncherChild extends JSWindowActorChild {
     let scrubberPosition = undefined;
     let bufferedAhead = undefined;
 
-    if (lazy.IMPROVED_CONTROLS_ENABLED_PREF) {
+        if (lazy.IMPROVED_CONTROLS_ENABLED_PREF) {
       timestamp = PictureInPictureChild.videoWrapper.formatTimestamp(
         PictureInPictureChild.videoWrapper.getCurrentTime(video),
         PictureInPictureChild.videoWrapper.getDuration(video)
@@ -286,9 +286,6 @@ export class PictureInPictureLauncherChild extends JSWindowActorChild {
       isPipApiRequest: !!pictureInPictureWindow,
       ccEnabled: lazy.DISPLAY_TEXT_TRACKS_PREF,
       webVTTSubtitles: !!video.textTracks?.length,
-      scrubberPosition,
-      timestamp,
-      volume: PictureInPictureChild.videoWrapper.getVolume(video),
       scrubberPosition,
       timestamp,
       bufferedAhead,
