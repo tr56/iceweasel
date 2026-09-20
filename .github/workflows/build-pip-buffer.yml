@@ -35,6 +35,9 @@ jobs:
           grep -q 'setBufferedAhead' \
             toolkit/components/pictureinpicture/content/player.js
 
+          grep -q 'bufferedAhead' \
+            toolkit/components/pictureinpicture/PictureInPicture.sys.mjs
+
           echo "PiP buffer patch found."
         shell: bash
 
@@ -49,9 +52,11 @@ jobs:
           if [ -d "/home/runner/.cargo" ]; then
             rm -rf /home/runner/.cargo
           fi
+
           if [ -d "/home/runner/.rustup" ]; then
             rm -rf /home/runner/.rustup
           fi
+
           if [ -d "/home/runner/.mozbuild" ]; then
             rm -rf /home/runner/.mozbuild
           fi
@@ -69,11 +74,12 @@ jobs:
 
           sudo mkdir -p "$MOZ_FETCHES_DIR"
           sudo chown runner:runner -R "$MOZ_FETCHES_DIR"
+
           mkdir -p "$MOZBUILD_DOWNLOAD"
 
           cd "$GITHUB_WORKSPACE"
 
-          m_ver="$(cat browser/config/version_display.txt)"
+          m_ver=$(cat browser/config/version_display.txt)
           echo "MY_VER=$m_ver" >> "$GITHUB_ENV"
 
           mkdir -p "/home/runner/.mozbuild"
@@ -84,6 +90,7 @@ jobs:
 
       - name: system dependencies
         run: |
+          set -e
           set -x
 
           sudo apt update --fix-missing
@@ -100,59 +107,135 @@ jobs:
 
           cd "$MOZBUILD_DOWNLOAD"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/cbindgen.tar.xz?viasf=1 -O cbindgen.tar.xz
+          echo "=== cbindgen ==="
+          wget \
+            https://master.dl.sourceforge.net/project/libportable/Mozillabuild/cbindgen.tar.xz?viasf=1 \
+            -O cbindgen.tar.xz
+
           tar Jxf cbindgen.tar.xz -C "/home/runner/.mozbuild"
           chmod -R 755 "/home/runner/.mozbuild/cbindgen"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/nasm.tar.xz?viasf=1 -O nasm.tar.xz
+
+          echo "=== nasm ==="
+          wget \
+            https://master.dl.sourceforge.net/project/libportable/Mozillabuild/nasm.tar.xz?viasf=1 \
+            -O nasm.tar.xz
+
           tar Jxf nasm.tar.xz -C "/home/runner/.mozbuild"
           chmod -R 755 "/home/runner/.mozbuild/nasm"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/rust-size.tar.xz?viasf=1 -O rust-size.tar.xz
+
+          echo "=== rust-size ==="
+          wget \
+            https://master.dl.sourceforge.net/project/libportable/Mozillabuild/rust-size.tar.xz?viasf=1 \
+            -O rust-size.tar.xz
+
           tar Jxf rust-size.tar.xz -C "/home/runner/.mozbuild"
           chmod -R 755 "/home/runner/.mozbuild/rust-size"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/winchecksec.tar.xz?viasf=1 -O winchecksec.tar.xz
+
+          echo "=== winchecksec ==="
+          wget \
+            https://master.dl.sourceforge.net/project/libportable/Mozillabuild/winchecksec.tar.xz?viasf=1 \
+            -O winchecksec.tar.xz
+
           tar Jxf winchecksec.tar.xz -C "/home/runner/.mozbuild"
           chmod -R 755 "/home/runner/.mozbuild/winchecksec"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/dump_syms.tar.xz?viasf=1 -O dump_syms.tar.xz
+
+          echo "=== dump_syms ==="
+          wget \
+            https://master.dl.sourceforge.net/project/libportable/Mozillabuild/dump_syms.tar.xz?viasf=1 \
+            -O dump_syms.tar.xz
+
           tar Jxf dump_syms.tar.xz -C "/home/runner/.mozbuild"
           chmod -R 755 "/home/runner/.mozbuild/dump_syms"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/dxc.tar.xz?viasf=1 -O dxc.tar.xz
+
+          echo "=== dxc ==="
+          wget \
+            https://master.dl.sourceforge.net/project/libportable/Mozillabuild/dxc.tar.xz?viasf=1 \
+            -O dxc.tar.xz
+
           tar Jxf dxc.tar.xz -C "/home/runner/.mozbuild"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/7zz.tar.xz?viasf=1 -O 7zz.tar.xz
+
+          echo "=== 7zz ==="
+          wget \
+            https://master.dl.sourceforge.net/project/libportable/Mozillabuild/7zz.tar.xz?viasf=1 \
+            -O 7zz.tar.xz
+
           tar Jxf 7zz.tar.xz -C "$MOZ_FETCHES_DIR"
           chmod -R 755 "$MOZ_FETCHES_DIR/7zz"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/sccache.tar.xz?viasf=1 -O sccache.tar.xz
+
+          echo "=== sccache ==="
+          wget \
+            https://master.dl.sourceforge.net/project/libportable/Mozillabuild/sccache.tar.xz?viasf=1 \
+            -O sccache.tar.xz
+
           tar Jxf sccache.tar.xz -C "$MOZ_FETCHES_DIR"
           chmod -R 755 "$MOZ_FETCHES_DIR/sccache"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/clang21.tar.xz?viasf=1 -O clang.tar.xz
+
+          echo "=== clang ==="
+          wget \
+            https://master.dl.sourceforge.net/project/libportable/Mozillabuild/clang21.tar.xz?viasf=1 \
+            -O clang.tar.xz
+
           tar Jxf clang.tar.xz -C "$MOZ_FETCHES_DIR"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/diasdk2026.tar.xz?viasf=1 -O diasdk.tar.xz
+
+          echo "=== DIA SDK ==="
+          wget \
+            https://master.dl.sourceforge.net/project/libportable/Mozillabuild/diasdk2026.tar.xz?viasf=1 \
+            -O diasdk.tar.xz
+
           tar Jxf diasdk.tar.xz -C "$MOZ_FETCHES_DIR"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/upcheck.tar.xz?viasf=1 -O upcheck.tar.xz
+
+          echo "=== upcheck ==="
+          wget \
+            https://master.dl.sourceforge.net/project/libportable/Mozillabuild/upcheck.tar.xz?viasf=1 \
+            -O upcheck.tar.xz
+
           tar Jxf upcheck.tar.xz -C "$MOZ_FETCHES_DIR/clang"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/onnxruntime.tar.xz?viasf=1 -O onnxruntime.tar.xz
+
+          echo "=== onnxruntime ==="
+          wget \
+            https://master.dl.sourceforge.net/project/libportable/Mozillabuild/onnxruntime.tar.xz?viasf=1 \
+            -O onnxruntime.tar.xz
+
           tar Jxf onnxruntime.tar.xz -C "$MOZ_FETCHES_DIR"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/rust194.tar.xz?viasf=1 -O rust.tar.xz
+
+          echo "=== Rust ==="
+          wget \
+            https://master.dl.sourceforge.net/project/libportable/Mozillabuild/rust194.tar.xz?viasf=1 \
+            -O rust.tar.xz
+
           tar Jxf rust.tar.xz -C "$MOZ_FETCHES_DIR"
           chmod -R 755 "$MOZ_FETCHES_DIR/rust"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/vs2026.tar.xz?viasf=1 -O vs.tar.xz
+
+          echo "=== Visual Studio ==="
+          wget \
+            https://master.dl.sourceforge.net/project/libportable/Mozillabuild/vs2026.tar.xz?viasf=1 \
+            -O vs.tar.xz
+
           tar Jxf vs.tar.xz -C "$MOZ_FETCHES_DIR"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/windows-rs.tar.xz?viasf=1 -O windows-rs.tar.xz
+
+          echo "=== windows-rs ==="
+          wget \
+            https://master.dl.sourceforge.net/project/libportable/Mozillabuild/windows-rs.tar.xz?viasf=1 \
+            -O windows-rs.tar.xz
+
           tar Jxf windows-rs.tar.xz -C "$MOZ_FETCHES_DIR"
 
+
+          echo "=== l10n ==="
           git clone \
             --branch release \
             --depth=1 \
@@ -161,123 +244,192 @@ jobs:
 
           chmod -R 755 "$MOZ_FETCHES_DIR/l10n"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/wine.tar.xz?viasf=1 -O wine.tar.xz
+
+          echo "=== Wine ==="
+          wget \
+            https://master.dl.sourceforge.net/project/libportable/Mozillabuild/wine.tar.xz?viasf=1 \
+            -O wine.tar.xz
+
           tar Jxf wine.tar.xz -C "$MOZ_FETCHES_DIR"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/winsdk2026.tar.xz?viasf=1 -O winsdk.tar.xz
 
-          # Extract Windows SDK into a temporary directory first.
-          # The archive can contain a top-level "vs" directory, and extracting
-          # directly into "$MOZ_FETCHES_DIR/vs" can produce:
-          # /builds/worker/fetches/vs/vs/Windows Kits
-          mkdir -p "$MOZ_FETCHES_DIR/winsdk-extract"
-          tar Jxf winsdk.tar.xz -C "$MOZ_FETCHES_DIR/winsdk-extract"
+          echo "========================================"
+          echo "=== Windows SDK ==="
+          echo "========================================"
 
-          echo "Locating Windows Kits directory..."
-          FOUND_WINDOWS_KITS_DIR="$(
-            find "$MOZ_FETCHES_DIR/winsdk-extract" \
-              -type d \
-              -path "*/Windows Kits" \
-              -print \
-              -quit || true
-          )"
+          wget \
+            https://master.dl.sourceforge.net/project/libportable/Mozillabuild/winsdk2026.tar.xz?viasf=1 \
+            -O winsdk.tar.xz
 
-          if [ -z "$FOUND_WINDOWS_KITS_DIR" ]; then
-            echo "Windows Kits directory was not found after extracting winsdk."
-            echo "winsdk-extract layout:"
-            find "$MOZ_FETCHES_DIR/winsdk-extract" -maxdepth 6 -type d | sort
-            exit 1
-          fi
+          # Do not unpack winsdk directly into $MOZ_FETCHES_DIR/vs.
+          # The archive itself contains a top-level "vs" directory.
+          # Unpacking directly there would create:
+          #
+          #   $MOZ_FETCHES_DIR/vs/vs/Windows Kits
+          #
+          # while clang/libportable expects:
+          #
+          #   $MOZ_FETCHES_DIR/vs/Windows Kits
 
-          echo "Found Windows Kits at:"
-          echo "$FOUND_WINDOWS_KITS_DIR"
+          WINSDK_TEMP="$MOZ_FETCHES_DIR/winsdk-extract"
 
-          # libportable expects Windows SDK under:
-          # /builds/worker/fetches/vs/Windows Kits/...
-          rm -rf "$MOZ_FETCHES_DIR/vs/Windows Kits"
+          rm -rf "$WINSDK_TEMP"
+          mkdir -p "$WINSDK_TEMP"
+
+          tar Jxf winsdk.tar.xz -C "$WINSDK_TEMP"
+
+          echo
+          echo "Windows SDK archive top-level layout:"
+          find "$WINSDK_TEMP" -maxdepth 4 -type d -print | sort
+
           mkdir -p "$MOZ_FETCHES_DIR/vs"
-          cp -a "$FOUND_WINDOWS_KITS_DIR" "$MOZ_FETCHES_DIR/vs/"
 
-          echo "Checking windows.h..."
-          FOUND_WINSDK_HEADER="$(
-            find "$MOZ_FETCHES_DIR/vs/Windows Kits" \
-              -type f \
-              -iname "windows.h" \
-              -path "*/10/Include/*/um/*" \
-              -print \
-              -quit || true
-          )"
+          if [ -d "$WINSDK_TEMP/vs/Windows Kits" ]; then
+            echo
+            echo "Found archive layout: vs/Windows Kits"
 
-          if [ -z "$FOUND_WINSDK_HEADER" ]; then
-            echo "windows.h was not found under normalized Windows Kits directory."
-            echo "Windows Kits layout:"
-            find "$MOZ_FETCHES_DIR/vs/Windows Kits" -maxdepth 8 -type d | sort
+            rm -rf "$MOZ_FETCHES_DIR/vs/Windows Kits"
+
+            cp -a \
+              "$WINSDK_TEMP/vs/Windows Kits" \
+              "$MOZ_FETCHES_DIR/vs/"
+
+          elif [ -d "$WINSDK_TEMP/Windows Kits" ]; then
+            echo
+            echo "Found archive layout: Windows Kits"
+
+            rm -rf "$MOZ_FETCHES_DIR/vs/Windows Kits"
+
+            cp -a \
+              "$WINSDK_TEMP/Windows Kits" \
+              "$MOZ_FETCHES_DIR/vs/"
+
+          else
+            echo
+            echo "ERROR: Windows Kits directory not found in winsdk archive."
+
+            echo
+            echo "Archive directory tree:"
+            find "$WINSDK_TEMP" -maxdepth 6 -type d -print | sort
+
             exit 1
           fi
 
-          echo "Found windows.h at:"
-          echo "$FOUND_WINSDK_HEADER"
-
-          EXPECTED_WINSDK_HEADER="$MOZ_FETCHES_DIR/vs/Windows Kits/10/Include/10.0.28000.0/um/windows.h"
-
-          # If the SDK version inside the archive is different, create compatibility
-          # symlinks for the version that libportable's Makefiles expect.
-          if [ ! -f "$EXPECTED_WINSDK_HEADER" ]; then
-            ACTUAL_SDK_VERSION="$(
-              echo "$FOUND_WINSDK_HEADER" | sed -E 's#^.*/Windows Kits/10/Include/([^/]+)/um/.*$#\1#'
-            )"
-
-            echo "Actual Windows SDK version:"
-            echo "$ACTUAL_SDK_VERSION"
-
-            if [ "$ACTUAL_SDK_VERSION" != "10.0.28000.0" ]; then
-              echo "Creating compatibility symlinks for Windows SDK 10.0.28000.0"
-
-              mkdir -p "$MOZ_FETCHES_DIR/vs/Windows Kits/10/Include"
-              mkdir -p "$MOZ_FETCHES_DIR/vs/Windows Kits/10/Lib"
-
-              if [ ! -e "$MOZ_FETCHES_DIR/vs/Windows Kits/10/Include/10.0.28000.0" ]; then
-                ln -s "$ACTUAL_SDK_VERSION" \
-                  "$MOZ_FETCHES_DIR/vs/Windows Kits/10/Include/10.0.28000.0"
-              fi
-
-              if [ -d "$MOZ_FETCHES_DIR/vs/Windows Kits/10/Lib/$ACTUAL_SDK_VERSION" ] &&
-                 [ ! -e "$MOZ_FETCHES_DIR/vs/Windows Kits/10/Lib/10.0.28000.0" ]; then
-                ln -s "$ACTUAL_SDK_VERSION" \
-                  "$MOZ_FETCHES_DIR/vs/Windows Kits/10/Lib/10.0.28000.0"
-              fi
-            fi
-          fi
-
-          if [ ! -f "$EXPECTED_WINSDK_HEADER" ]; then
-            echo "Expected Windows SDK header is still missing:"
-            echo "$EXPECTED_WINSDK_HEADER"
-            echo "Available windows.h files:"
-            find "$MOZ_FETCHES_DIR/vs/Windows Kits" \
-              -type f \
-              -iname "windows.h" \
-              -print || true
-            exit 1
-          fi
+          rm -rf "$WINSDK_TEMP"
 
           chmod -R 755 "$MOZ_FETCHES_DIR/vs"
 
+          echo
+          echo "Windows SDK include versions available:"
+
+          find \
+            "$MOZ_FETCHES_DIR/vs/Windows Kits/10/Include" \
+            -mindepth 1 \
+            -maxdepth 1 \
+            -type d \
+            -print 2>/dev/null || true
+
+          EXPECTED_WINSDK_HEADER="$MOZ_FETCHES_DIR/vs/Windows Kits/10/Include/10.0.28000.0/um/windows.h"
+
+          echo
+          echo "Checking expected windows.h:"
+          echo "$EXPECTED_WINSDK_HEADER"
+
+          if [ ! -f "$EXPECTED_WINSDK_HEADER" ]; then
+            echo
+            echo "ERROR: expected Windows SDK header is missing."
+
+            echo
+            echo "Available windows.h files:"
+
+            find \
+              "$MOZ_FETCHES_DIR/vs" \
+              -type f \
+              -iname "windows.h" \
+              -print 2>/dev/null || true
+
+            echo
+            echo "Visual Studio / SDK directory tree:"
+
+            find \
+              "$MOZ_FETCHES_DIR/vs" \
+              -maxdepth 6 \
+              -type d \
+              -print | sort
+
+            exit 1
+          fi
+
+          echo
           echo "Windows SDK layout OK:"
-          ls -l "$EXPECTED_WINSDK_HEADER"
+          ls -lh "$EXPECTED_WINSDK_HEADER"
 
-          rm -rf "$MOZ_FETCHES_DIR/winsdk-extract"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/winappsdk-x64.tar.xz?viasf=1 -O winappsdk-x64.tar.xz
+          echo "=== Windows App SDK ==="
+          wget \
+            https://master.dl.sourceforge.net/project/libportable/Mozillabuild/winappsdk-x64.tar.xz?viasf=1 \
+            -O winappsdk-x64.tar.xz
+
           tar Jxf winappsdk-x64.tar.xz -C "$MOZ_FETCHES_DIR"
 
-          wget https://master.dl.sourceforge.net/project/libportable/Mozillabuild/upx.tar.xz?viasf=1 -O upx.tar.xz
+
+          echo "=== UPX ==="
+          wget \
+            https://master.dl.sourceforge.net/project/libportable/Mozillabuild/upx.tar.xz?viasf=1 \
+            -O upx.tar.xz
+
           tar Jxf upx.tar.xz -C "$MOZ_FETCHES_DIR"
           chmod -R 755 "$MOZ_FETCHES_DIR/upx-win64"
+
+
+          echo
+          echo "========================================"
+          echo "Toolchain installation complete"
+          echo "========================================"
 
           cd "$MOZ_FETCHES_DIR"
           ls -la
 
+          echo
+          echo "Disk space:"
+          df -hT
+
           rm -rf "$MOZBUILD_DOWNLOAD"
+        shell: bash
+
+      - name: Verify Windows toolchain
+        run: |
+          set -e
+
+          echo "=== clang ==="
+          "$MOZ_FETCHES_DIR/clang/bin/clang" --version
+
+          echo
+          echo "=== clang-cl ==="
+          "$MOZ_FETCHES_DIR/clang/bin/clang-cl" --version
+
+          echo
+          echo "=== Windows SDK ==="
+
+          WINDOWS_H="$MOZ_FETCHES_DIR/vs/Windows Kits/10/Include/10.0.28000.0/um/windows.h"
+
+          test -f "$WINDOWS_H"
+
+          echo "Found:"
+          ls -lh "$WINDOWS_H"
+
+          echo
+          echo "=== overlay.yaml ==="
+
+          test -f "$MOZ_FETCHES_DIR/vs/overlay.yaml"
+
+          grep -n \
+            -E "Windows Kits|10\.0\.28000\.0" \
+            "$MOZ_FETCHES_DIR/vs/overlay.yaml" \
+            | head -100 || true
+
+          echo
+          echo "Windows toolchain verification passed."
         shell: bash
 
       - name: start building libportable
@@ -287,12 +439,25 @@ jobs:
 
           cd "$MOZ_FETCHES_DIR"
 
-          git clone --depth=1 https://github.com/adonais/libportable.git
+          git clone \
+            --depth=1 \
+            https://github.com/adonais/libportable.git
 
           cd libportable
+
+          echo "libportable commit:"
+          git rev-parse HEAD
+
           chmod +x ./build
 
+          echo
+          echo "=== Building libportable ==="
+
           ./build PGO_GEN=1
+
+          echo
+          echo "=== Installing libportable ==="
+
           ./build install
 
           cd "$MOZ_FETCHES_DIR"
@@ -305,23 +470,43 @@ jobs:
         run: |
           set -e
 
+          echo "Disk space before Iceweasel build:"
           df -hT
 
           cd "$GITHUB_WORKSPACE"
 
+          echo
+          echo "Source branch/ref:"
+          echo "$GITHUB_REF"
+
+          echo
           echo "Source commit:"
           git rev-parse HEAD
 
+          echo
+          echo "Verify PiP modification one more time:"
+          grep -n 'getBufferedAhead' \
+            toolkit/actors/PictureInPictureChild.sys.mjs | head
+
           chmod +x ./fx_pgo_generate.sh
+
           ./fx_pgo_generate.sh 64
 
-          dist_dir="$(cd "$GITHUB_WORKSPACE/../obju64-release/dist" && pwd)"
+          dist_dir=$(
+            cd "$GITHUB_WORKSPACE/../obju64-release/dist"
+            pwd
+          )
 
           echo "MY_BITS64=win64" >> "$GITHUB_ENV"
           echo "MY_DIST64=$dist_dir" >> "$GITHUB_ENV"
 
+          echo
           echo "Build output:"
           ls -lah "$dist_dir"
+
+          echo
+          echo "Disk space after Iceweasel build:"
+          df -hT
         shell: bash
 
       - name: Verify package exists
@@ -334,12 +519,18 @@ jobs:
           echo "$PACKAGE"
 
           if [ ! -f "$PACKAGE" ]; then
-            echo "Package was not found."
+            echo
+            echo "ERROR: package was not found."
+
+            echo
             echo "Contents of dist:"
-            ls -lah "$MY_DIST64"
+            ls -lah "$MY_DIST64" || true
+
             exit 1
           fi
 
+          echo
+          echo "Package found:"
           ls -lh "$PACKAGE"
         shell: bash
 
