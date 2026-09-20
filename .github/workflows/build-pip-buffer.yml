@@ -200,7 +200,6 @@ jobs:
             --depth=1 \
             https://github.com/adonais/iceweasel-l10n.git \
             "$MOZ_FETCHES_DIR/l10n"
-
           chmod -R 755 "$MOZ_FETCHES_DIR/l10n"
 
           echo "=== Wine ==="
@@ -210,9 +209,7 @@ jobs:
           tar Jxf wine.tar.xz -C "$MOZ_FETCHES_DIR"
 
           echo
-          echo "========================================"
           echo "=== Windows SDK ==="
-          echo "========================================"
 
           wget \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/winsdk2026.tar.xz?viasf=1" \
@@ -233,6 +230,7 @@ jobs:
             cp -a \
               "$WINSDK_TEMP/vs/Windows Kits" \
               "$MOZ_FETCHES_DIR/vs/"
+
           elif [ -d "$WINSDK_TEMP/Windows Kits" ]; then
             rm -rf "$MOZ_FETCHES_DIR/vs/Windows Kits"
 
@@ -260,7 +258,6 @@ jobs:
           wget \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/winappsdk-x64.tar.xz?viasf=1" \
             -O winappsdk-x64.tar.xz
-
           tar Jxf winappsdk-x64.tar.xz -C "$MOZ_FETCHES_DIR"
 
           echo
@@ -269,13 +266,11 @@ jobs:
           wget \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/upx.tar.xz?viasf=1" \
             -O upx.tar.xz
-
           tar Jxf upx.tar.xz -C "$MOZ_FETCHES_DIR"
           chmod -R 755 "$MOZ_FETCHES_DIR/upx-win64"
 
           rm -rf "$MOZBUILD_DOWNLOAD"
 
-          echo
           echo "Toolchain download complete."
 
       - name: Detect and prepare Windows SDK and MSVC
@@ -303,9 +298,9 @@ jobs:
             exit 1
           fi
 
-          echo "WINSDK_VERSION=$WINSDK_VERSION"
-
           SDK="$SDK_INCLUDE_ROOT/$WINSDK_VERSION"
+
+          echo "WINSDK_VERSION=$WINSDK_VERSION"
 
           test -d "$SDK/shared"
           test -d "$SDK/um"
@@ -313,27 +308,18 @@ jobs:
           test -d "$SDK_ROOT/Lib/$WINSDK_VERSION"
 
           echo
-          echo "=== Normalize Windows.h filename for Linux ==="
+          echo "=== Normalize Windows.h filename ==="
 
           if [ -f "$SDK/um/Windows.h" ] &&
              [ ! -e "$SDK/um/windows.h" ]; then
-
             ln -s Windows.h "$SDK/um/windows.h"
           fi
 
           if [ ! -f "$SDK/um/windows.h" ]; then
-            echo "ERROR: windows.h is unavailable:"
-            echo "$SDK/um/windows.h"
-
-            find "$SDK/um" \
-              -maxdepth 1 \
-              -iname 'windows.h' \
-              -print || true
-
+            echo "ERROR: windows.h unavailable."
             exit 1
           fi
 
-          echo "windows.h:"
           ls -lh "$SDK/um/windows.h"
 
           echo "WINSDK_VERSION=$WINSDK_VERSION" >> "$GITHUB_ENV"
@@ -435,9 +421,6 @@ jobs:
           SDK="$MOZ_FETCHES_DIR/vs/Windows Kits/10/Include/$WINSDK_VERSION"
           OVERLAY="$MOZ_FETCHES_DIR/vs/overlay.yaml"
 
-          test -f "$SDK/um/windows.h"
-          test -f "$OVERLAY"
-
           cat >/tmp/test-windows.cpp <<'EOF'
           #include <windows.h>
           #include <excpt.h>
@@ -467,20 +450,7 @@ jobs:
           fi
 
           echo "clang-cl:"
-          which clang-cl
           clang-cl --version
-
-          echo
-          echo "windows.h:"
-          ls -lh "$SDK/um/windows.h"
-
-          echo
-          echo "MSVC excpt.h:"
-          ls -lh "$MSVC_INCLUDE/excpt.h"
-
-          echo
-          echo "DriverSpecs include:"
-          echo "${DRIVER_SPECS_DIR:-not found}"
 
           echo
           echo "Compiling Windows header smoke test..."
@@ -501,8 +471,6 @@ jobs:
 
           export PATH="$MOZ_FETCHES_DIR/clang/bin:$MOZ_FETCHES_DIR/rust/bin:$PATH"
 
-          SDK="$MOZ_FETCHES_DIR/vs/Windows Kits/10/Include/$WINSDK_VERSION"
-
           cd "$MOZ_FETCHES_DIR"
 
           git clone \
@@ -515,35 +483,98 @@ jobs:
           git rev-parse HEAD
 
           echo
-          echo "=== Patch SDK version in libportable ==="
+          echo "=== Patch SDK version ==="
 
           sed -i \
             "s/10\.0\.28000\.0/$WINSDK_VERSION/g" \
             ./build
 
           if grep -q '10\.0\.28000\.0' ./build; then
-            echo "ERROR: stale SDK version remains in libportable/build."
+            echo "ERROR: stale SDK version remains."
             exit 1
           fi
 
-          echo "libportable SDK setting:"
           grep -n 'sdk_version' ./build || true
 
           echo
-          echo "=== Compiler include environment ==="
+          echo "=== Verify MSVC headers ==="
 
-          export INCLUDE="$MSVC_INCLUDE:$SDK/shared:$SDK/um:$SDK/ucrt:$SDK/winrt:$SDK/cppwinrt"
+          test -f "$MSVC_INCLUDE/excpt.h"
+          test -f "$MSVC_INCLUDE/vcruntime.h"
 
-          if [ -n "${DRIVER_SPECS_DIR:-}" ]; then
-            export INCLUDE="$INCLUDE:$DRIVER_SPECS_DIR"
+          echo "MSVC include:"
+          echo "$MSVC_INCLUDE"
+
+          echo
+          echo "=== Patch MinHook Makefile ==="
+
+          MINHOOK_MAKEFILE="src/minhook/Makefile"
+
+          if [ ! -f "$MINHOOK_MAKEFILE" ]; then
+            echo "ERROR: $MINHOOK_MAKEFILE not found."
+            exit 1
           fi
 
-          echo "INCLUDE=$INCLUDE"
+          echo "Before patch:"
 
-          chmod +x ./build
+          grep -n \
+            -E 'clang-cl|Iinclude|CFLAGS|CXXFLAGS' \
+            "$MINHOOK_MAKEFILE" \
+            | head -100 || true
+
+          #
+          # The Linux cross-build MinHook Makefile creates its clang-cl
+          # command line directly and does not consume the INCLUDE variable.
+          # Insert the MSVC include directory immediately before -Iinclude.
+          #
+
+          sed -i \
+            "s#-Iinclude#-I\"$MSVC_INCLUDE\" -Iinclude#g" \
+            "$MINHOOK_MAKEFILE"
+
+          echo
+          echo "After patch:"
+
+          grep -n \
+            "$MSVC_INCLUDE" \
+            "$MINHOOK_MAKEFILE" || true
+
+          if ! grep -Fq \
+            "$MSVC_INCLUDE" \
+            "$MINHOOK_MAKEFILE"; then
+            echo "ERROR: MSVC include was not inserted into MinHook Makefile."
+            exit 1
+          fi
+
+          echo
+          echo "=== Patch other clang-cl Makefiles if needed ==="
+
+          while IFS= read -r makefile; do
+            if [ "$makefile" = "./$MINHOOK_MAKEFILE" ]; then
+              continue
+            fi
+
+            if grep -q 'clang-cl' "$makefile" &&
+               grep -q -- '-Iinclude' "$makefile" &&
+               ! grep -Fq "$MSVC_INCLUDE" "$makefile"; then
+
+              echo "Patching: $makefile"
+
+              sed -i \
+                "s#-Iinclude#-I\"$MSVC_INCLUDE\" -Iinclude#g" \
+                "$makefile"
+            fi
+          done < <(
+            find . \
+              -type f \
+              \( -name 'Makefile' -o -name '*.mk' \) \
+              -print
+          )
 
           echo
           echo "=== Building libportable ==="
+
+          chmod +x ./build
 
           ./build PGO_GEN=1
 
