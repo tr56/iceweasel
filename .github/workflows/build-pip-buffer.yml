@@ -72,7 +72,6 @@ jobs:
           cd "$GITHUB_WORKSPACE"
 
           MY_VER=$(cat browser/config/version_display.txt)
-
           echo "MY_VER=$MY_VER" >> "$GITHUB_ENV"
 
           echo "Iceweasel version: $MY_VER"
@@ -96,20 +95,6 @@ jobs:
           set -e
 
           cd "$MOZBUILD_DOWNLOAD"
-
-          download_extract_mozbuild()
-          {
-            NAME="$1"
-            URL="$2"
-
-            echo
-            echo "=== $NAME ==="
-
-            wget "$URL" -O "$NAME.tar.xz"
-
-            tar Jxf "$NAME.tar.xz" \
-              -C /home/runner/.mozbuild
-          }
 
           echo "=== cbindgen ==="
           wget \
@@ -243,23 +228,18 @@ jobs:
           mkdir -p "$MOZ_FETCHES_DIR/vs"
 
           if [ -d "$WINSDK_TEMP/vs/Windows Kits" ]; then
-
             rm -rf "$MOZ_FETCHES_DIR/vs/Windows Kits"
 
             cp -a \
               "$WINSDK_TEMP/vs/Windows Kits" \
               "$MOZ_FETCHES_DIR/vs/"
-
           elif [ -d "$WINSDK_TEMP/Windows Kits" ]; then
-
             rm -rf "$MOZ_FETCHES_DIR/vs/Windows Kits"
 
             cp -a \
               "$WINSDK_TEMP/Windows Kits" \
               "$MOZ_FETCHES_DIR/vs/"
-
           else
-
             echo "ERROR: Windows Kits not found in archive."
 
             find "$WINSDK_TEMP" \
@@ -280,13 +260,16 @@ jobs:
           wget \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/winappsdk-x64.tar.xz?viasf=1" \
             -O winappsdk-x64.tar.xz
+
           tar Jxf winappsdk-x64.tar.xz -C "$MOZ_FETCHES_DIR"
 
+          echo
           echo "=== UPX ==="
 
           wget \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/upx.tar.xz?viasf=1" \
             -O upx.tar.xz
+
           tar Jxf upx.tar.xz -C "$MOZ_FETCHES_DIR"
           chmod -R 755 "$MOZ_FETCHES_DIR/upx-win64"
 
@@ -295,7 +278,7 @@ jobs:
           echo
           echo "Toolchain download complete."
 
-      - name: Detect Windows SDK and MSVC
+      - name: Detect and prepare Windows SDK and MSVC
         shell: bash
         run: |
           set -e
@@ -322,10 +305,36 @@ jobs:
 
           echo "WINSDK_VERSION=$WINSDK_VERSION"
 
-          test -d "$SDK_ROOT/Include/$WINSDK_VERSION/shared"
-          test -d "$SDK_ROOT/Include/$WINSDK_VERSION/um"
-          test -d "$SDK_ROOT/Include/$WINSDK_VERSION/ucrt"
+          SDK="$SDK_INCLUDE_ROOT/$WINSDK_VERSION"
+
+          test -d "$SDK/shared"
+          test -d "$SDK/um"
+          test -d "$SDK/ucrt"
           test -d "$SDK_ROOT/Lib/$WINSDK_VERSION"
+
+          echo
+          echo "=== Normalize Windows.h filename for Linux ==="
+
+          if [ -f "$SDK/um/Windows.h" ] &&
+             [ ! -e "$SDK/um/windows.h" ]; then
+
+            ln -s Windows.h "$SDK/um/windows.h"
+          fi
+
+          if [ ! -f "$SDK/um/windows.h" ]; then
+            echo "ERROR: windows.h is unavailable:"
+            echo "$SDK/um/windows.h"
+
+            find "$SDK/um" \
+              -maxdepth 1 \
+              -iname 'windows.h' \
+              -print || true
+
+            exit 1
+          fi
+
+          echo "windows.h:"
+          ls -lh "$SDK/um/windows.h"
 
           echo "WINSDK_VERSION=$WINSDK_VERSION" >> "$GITHUB_ENV"
 
@@ -371,11 +380,7 @@ jobs:
               -quit || true
           )
 
-          if [ -z "$DRIVER_SPECS" ]; then
-            echo "WARNING: DriverSpecs.h was not found."
-            echo "The smoke test will show whether it is required."
-            DRIVER_SPECS_DIR=""
-          else
+          if [ -n "$DRIVER_SPECS" ]; then
             DRIVER_SPECS_DIR=$(dirname "$DRIVER_SPECS")
 
             echo "DriverSpecs.h:"
@@ -383,6 +388,8 @@ jobs:
 
             echo "DRIVER_SPECS_DIR=$DRIVER_SPECS_DIR" \
               >> "$GITHUB_ENV"
+          else
+            echo "WARNING: DriverSpecs.h not found."
           fi
 
       - name: Patch toolchain SDK configuration
@@ -426,10 +433,15 @@ jobs:
           export PATH="$MOZ_FETCHES_DIR/clang/bin:$PATH"
 
           SDK="$MOZ_FETCHES_DIR/vs/Windows Kits/10/Include/$WINSDK_VERSION"
+          OVERLAY="$MOZ_FETCHES_DIR/vs/overlay.yaml"
+
+          test -f "$SDK/um/windows.h"
+          test -f "$OVERLAY"
 
           cat >/tmp/test-windows.cpp <<'EOF'
           #include <windows.h>
           #include <excpt.h>
+
           int main() {
             return 0;
           }
@@ -459,9 +471,24 @@ jobs:
           clang-cl --version
 
           echo
+          echo "windows.h:"
+          ls -lh "$SDK/um/windows.h"
+
+          echo
+          echo "MSVC excpt.h:"
+          ls -lh "$MSVC_INCLUDE/excpt.h"
+
+          echo
+          echo "DriverSpecs include:"
+          echo "${DRIVER_SPECS_DIR:-not found}"
+
+          echo
           echo "Compiling Windows header smoke test..."
 
-          clang-cl "${ARGS[@]}"
+          clang-cl \
+            -Xclang -ivfsoverlay \
+            -Xclang "$OVERLAY" \
+            "${ARGS[@]}"
 
           echo
           echo "Windows header smoke test passed."
@@ -473,6 +500,8 @@ jobs:
           set -e
 
           export PATH="$MOZ_FETCHES_DIR/clang/bin:$MOZ_FETCHES_DIR/rust/bin:$PATH"
+
+          SDK="$MOZ_FETCHES_DIR/vs/Windows Kits/10/Include/$WINSDK_VERSION"
 
           cd "$MOZ_FETCHES_DIR"
 
@@ -486,7 +515,7 @@ jobs:
           git rev-parse HEAD
 
           echo
-          echo "Patch SDK version in libportable..."
+          echo "=== Patch SDK version in libportable ==="
 
           sed -i \
             "s/10\.0\.28000\.0/$WINSDK_VERSION/g" \
@@ -501,24 +530,14 @@ jobs:
           grep -n 'sdk_version' ./build || true
 
           echo
-          echo "MSVC include:"
-          echo "$MSVC_INCLUDE"
+          echo "=== Compiler include environment ==="
 
-          echo
-          echo "DriverSpecs include:"
-          echo "${DRIVER_SPECS_DIR:-not found}"
-
-          #
-          # clang-cl also understands INCLUDE on non-Windows hosts.
-          # Keep all required compiler headers available to child makefiles.
-          #
-          export INCLUDE="$MSVC_INCLUDE"
+          export INCLUDE="$MSVC_INCLUDE:$SDK/shared:$SDK/um:$SDK/ucrt:$SDK/winrt:$SDK/cppwinrt"
 
           if [ -n "${DRIVER_SPECS_DIR:-}" ]; then
             export INCLUDE="$INCLUDE:$DRIVER_SPECS_DIR"
           fi
 
-          echo
           echo "INCLUDE=$INCLUDE"
 
           chmod +x ./build
@@ -558,6 +577,7 @@ jobs:
 
           echo
           echo "Verify PiP patch:"
+
           grep -n \
             'getBufferedAhead' \
             toolkit/actors/PictureInPictureChild.sys.mjs \
