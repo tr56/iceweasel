@@ -46,19 +46,19 @@ jobs:
           remove-browsers: true
           verbose: true
 
-      - name: clean rustc
+      - name: Clean Rust environment
         run: |
           rm -rf /home/runner/.cargo || true
           rm -rf /home/runner/.rustup || true
           rm -rf /home/runner/.mozbuild || true
         shell: bash
 
-      - name: set swap-space
+      - name: Set swap-space
         uses: yxl0756/set-swap-space@master
         with:
           swap-size-gb: 10
 
-      - name: mkdir and setenv
+      - name: Prepare directories and environment
         run: |
           set -e
 
@@ -78,15 +78,16 @@ jobs:
           echo "Git commit: $(git rev-parse HEAD)"
         shell: bash
 
-      - name: system dependencies
+      - name: Install system dependencies
         run: |
           set -e
+
           sudo apt update --fix-missing
           sudo apt update
           sudo apt install -y nsis
         shell: bash
 
-      - name: download tools
+      - name: Download toolchain
         run: |
           set -e
 
@@ -219,14 +220,10 @@ jobs:
 
           tar Jxf winsdk.tar.xz -C "$WINSDK_TEMP"
 
-          echo "Windows SDK archive layout:"
-          find "$WINSDK_TEMP" -maxdepth 4 -type d -print | sort
-
           mkdir -p "$MOZ_FETCHES_DIR/vs"
 
           if [ -d "$WINSDK_TEMP/vs/Windows Kits" ]; then
-
-            echo "Found archive layout: vs/Windows Kits"
+            echo "Found SDK layout: vs/Windows Kits"
 
             rm -rf "$MOZ_FETCHES_DIR/vs/Windows Kits"
 
@@ -235,17 +232,14 @@ jobs:
               "$MOZ_FETCHES_DIR/vs/"
 
           elif [ -d "$WINSDK_TEMP/Windows Kits" ]; then
-
-            echo "Found archive layout: Windows Kits"
+            echo "Found SDK layout: Windows Kits"
 
             rm -rf "$MOZ_FETCHES_DIR/vs/Windows Kits"
 
             cp -a \
               "$WINSDK_TEMP/Windows Kits" \
               "$MOZ_FETCHES_DIR/vs/"
-
           else
-
             echo "ERROR: Windows Kits not found in SDK archive."
 
             find "$WINSDK_TEMP" \
@@ -261,12 +255,12 @@ jobs:
           chmod -R 755 "$MOZ_FETCHES_DIR/vs"
 
           echo
-          echo "=== Detect installed SDK version ==="
+          echo "=== Detect Windows SDK version ==="
 
           SDK_INCLUDE_ROOT="$MOZ_FETCHES_DIR/vs/Windows Kits/10/Include"
 
           if [ ! -d "$SDK_INCLUDE_ROOT" ]; then
-            echo "ERROR: Windows SDK Include directory does not exist:"
+            echo "ERROR: SDK Include directory is missing:"
             echo "$SDK_INCLUDE_ROOT"
             exit 1
           fi
@@ -282,12 +276,11 @@ jobs:
           )
 
           if [ -z "$SDK_VERSION" ]; then
-            echo "ERROR: Windows SDK version could not be detected."
+            echo "ERROR: unable to determine Windows SDK version."
             exit 1
           fi
 
-          echo "Detected Windows SDK version:"
-          echo "$SDK_VERSION"
+          echo "Detected Windows SDK: $SDK_VERSION"
 
           WINDOWS_H="$SDK_INCLUDE_ROOT/$SDK_VERSION/um/Windows.h"
 
@@ -296,37 +289,25 @@ jobs:
           fi
 
           if [ ! -f "$WINDOWS_H" ]; then
-            echo "ERROR: windows.h was not found for SDK $SDK_VERSION"
-
-            find "$SDK_INCLUDE_ROOT/$SDK_VERSION" \
-              -maxdepth 2 \
-              -type f \
-              -iname "windows.h" \
-              -print || true
-
+            echo "ERROR: Windows.h not found for SDK $SDK_VERSION"
             exit 1
           fi
 
           SDK_LIB_ROOT="$MOZ_FETCHES_DIR/vs/Windows Kits/10/Lib/$SDK_VERSION"
 
           if [ ! -d "$SDK_LIB_ROOT" ]; then
-            echo "ERROR: matching SDK libraries were not found:"
+            echo "ERROR: SDK library directory is missing:"
             echo "$SDK_LIB_ROOT"
             exit 1
           fi
 
-          echo
           echo "Windows SDK header:"
           ls -lh "$WINDOWS_H"
 
-          echo
           echo "Windows SDK libraries:"
           ls -ld "$SDK_LIB_ROOT"
 
           echo "WINSDK_VERSION=$SDK_VERSION" >> "$GITHUB_ENV"
-
-          echo
-          echo "Detected SDK exported as WINSDK_VERSION=$SDK_VERSION"
 
           echo "=== Windows App SDK ==="
           wget \
@@ -348,26 +329,25 @@ jobs:
           ls -la
 
           echo
-          echo "Disk space:"
           df -hT
 
           rm -rf "$MOZBUILD_DOWNLOAD"
         shell: bash
 
-      - name: Verify Windows toolchain
+      - name: Fix and verify Windows SDK configuration
         run: |
           set -e
 
+          echo "Installed Windows SDK:"
+          echo "$WINSDK_VERSION"
+
+          echo
           echo "=== clang ==="
           "$MOZ_FETCHES_DIR/clang/bin/clang" --version
 
           echo
           echo "=== clang-cl ==="
           "$MOZ_FETCHES_DIR/clang/bin/clang-cl" --version
-
-          echo
-          echo "=== Windows SDK ==="
-          echo "WINSDK_VERSION=$WINSDK_VERSION"
 
           WINDOWS_H="$MOZ_FETCHES_DIR/vs/Windows Kits/10/Include/$WINSDK_VERSION/um/Windows.h"
 
@@ -376,70 +356,45 @@ jobs:
           fi
 
           test -f "$WINDOWS_H"
+          test -d "$MOZ_FETCHES_DIR/vs/Windows Kits/10/Lib/$WINSDK_VERSION"
 
-          echo "Header:"
-          ls -lh "$WINDOWS_H"
+          OVERLAY="$MOZ_FETCHES_DIR/vs/overlay.yaml"
 
-          SDK_LIB="$MOZ_FETCHES_DIR/vs/Windows Kits/10/Lib/$WINSDK_VERSION"
-
-          test -d "$SDK_LIB"
-
-          echo "Libraries:"
-          ls -ld "$SDK_LIB"
+          test -f "$OVERLAY"
 
           echo
-          echo "=== overlay.yaml ==="
-
-          test -f "$MOZ_FETCHES_DIR/vs/overlay.yaml"
-
-          echo "SDK versions referenced by overlay.yaml:"
+          echo "SDK versions in overlay.yaml before patch:"
 
           grep -oE \
             '10\.0\.[0-9]+\.0' \
-            "$MOZ_FETCHES_DIR/vs/overlay.yaml" \
+            "$OVERLAY" \
             | sort -Vu || true
 
           echo
-          echo "Windows toolchain verification complete."
-        shell: bash
+          echo "Replacing stale SDK 10.0.28000.0 with $WINSDK_VERSION in overlay.yaml..."
 
-      - name: Check SDK expected by toolchain
-        run: |
-          set -e
-
-          echo "Installed Windows SDK:"
-          echo "$WINSDK_VERSION"
+          sed -i \
+            "s/10\.0\.28000\.0/$WINSDK_VERSION/g" \
+            "$OVERLAY"
 
           echo
-          echo "SDK versions referenced by overlay.yaml:"
+          echo "SDK versions in overlay.yaml after patch:"
 
-          OVERLAY_VERSIONS=$(
-            grep -oE \
-              '10\.0\.[0-9]+\.0' \
-              "$MOZ_FETCHES_DIR/vs/overlay.yaml" \
-              | sort -Vu || true
-          )
+          grep -oE \
+            '10\.0\.[0-9]+\.0' \
+            "$OVERLAY" \
+            | sort -Vu || true
 
-          if [ -n "$OVERLAY_VERSIONS" ]; then
-            echo "$OVERLAY_VERSIONS"
-          else
-            echo "(no explicit SDK version found)"
+          if grep -q '10\.0\.28000\.0' "$OVERLAY"; then
+            echo "ERROR: stale 10.0.28000.0 remains in overlay.yaml."
+            exit 1
           fi
 
           echo
-          echo "Paths in overlay.yaml containing Windows Kits:"
-
-          grep -n \
-            'Windows Kits' \
-            "$MOZ_FETCHES_DIR/vs/overlay.yaml" \
-            | head -100 || true
-
-          echo
-          echo "Installed SDK remains untouched."
-          echo "No version directories are renamed or faked."
+          echo "Windows SDK configuration OK."
         shell: bash
 
-      - name: start building libportable
+      - name: Build libportable
         id: libportable_building
         run: |
           set -e
@@ -454,6 +409,58 @@ jobs:
 
           echo "libportable commit:"
           git rev-parse HEAD
+
+          echo
+          echo "Installed Windows SDK:"
+          echo "$WINSDK_VERSION"
+
+          echo
+          echo "=== Hardcoded SDK 10.0.28000.0 references before patch ==="
+
+          grep -RIn \
+            --exclude-dir=.git \
+            '10\.0\.28000\.0' \
+            . || true
+
+          echo
+          echo "=== Patch libportable SDK version ==="
+          echo "10.0.28000.0 -> $WINSDK_VERSION"
+
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+
+            echo "Patching: $file"
+
+            sed -i \
+              "s/10\.0\.28000\.0/$WINSDK_VERSION/g" \
+              "$file"
+          done < <(
+            grep -RIl \
+              --exclude-dir=.git \
+              '10\.0\.28000\.0' \
+              . || true
+          )
+
+          echo
+          echo "=== Verify libportable SDK patch ==="
+
+          if grep -RIn \
+            --exclude-dir=.git \
+            '10\.0\.28000\.0' \
+            .; then
+            echo "ERROR: stale SDK 10.0.28000.0 references remain in libportable."
+            exit 1
+          fi
+
+          echo "No stale 10.0.28000.0 references remain."
+
+          echo
+          echo "References to installed SDK $WINSDK_VERSION:"
+
+          grep -RIn \
+            --exclude-dir=.git \
+            "$WINSDK_VERSION" \
+            . | head -100 || true
 
           chmod +x ./build
 
@@ -472,7 +479,7 @@ jobs:
           rm -rf libportable
         shell: bash
 
-      - name: start building win64
+      - name: Build Iceweasel win64
         timeout-minutes: 180
         id: win64_building
         run: |
@@ -533,11 +540,8 @@ jobs:
           echo "$PACKAGE"
 
           if [ ! -f "$PACKAGE" ]; then
-
-            echo
             echo "ERROR: package was not found."
 
-            echo
             echo "Contents of dist:"
             ls -lah "$MY_DIST64" || true
 
