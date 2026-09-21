@@ -143,8 +143,8 @@ function setTimestamp(timeString) {
   Player.setTimestamp(timeString);
 }
 
-function setBufferedAhead(seconds) {
-  Player.setBufferedAhead(seconds);
+function setBufferedAhead(seconds, position) {
+  Player.setBufferedAhead(seconds, position);
 }
 
 function setVolume(volume) {
@@ -675,6 +675,19 @@ let Player = {
     this.scrubber.value = value;
     this.scrubber.hidden = value === undefined;
 
+    // Keep the CSS custom property in sync with the scrubber value so
+    // that the track's buffered segment (see player.css) starts at the
+    // right place.
+    if (value === undefined) {
+      this.scrubber.style.removeProperty("--pip-scrubber-played-pct");
+      this.scrubber.style.removeProperty("--pip-scrubber-buffered-pct");
+    } else {
+      this.scrubber.style.setProperty(
+        "--pip-scrubber-played-pct",
+        value * 100 + "%"
+      );
+    }
+
     // Also hide the seek buttons when we hide the scrubber
     this.seekBackward.hidden = value === undefined;
     this.seekForward.hidden = value === undefined;
@@ -685,7 +698,8 @@ let Player = {
     this.timestamp.hidden = timestamp === undefined;
   },
 
-  setBufferedAhead(seconds) {
+  setBufferedAhead(seconds, position) {
+    // Update the "+m:ss" label.
     if (
       seconds === undefined ||
       !Number.isFinite(seconds) ||
@@ -693,31 +707,48 @@ let Player = {
     ) {
       this.bufferedAhead.textContent = "";
       this.bufferedAhead.hidden = true;
+    } else {
+      let totalSeconds = Math.floor(seconds);
+      let hours = Math.floor(totalSeconds / 3600);
+      let minutes = Math.floor((totalSeconds % 3600) / 60);
+      let secs = totalSeconds % 60;
+
+      let formatted;
+      if (hours > 0) {
+        formatted =
+          hours +
+          ":" +
+          String(minutes).padStart(2, "0") +
+          ":" +
+          String(secs).padStart(2, "0");
+      } else {
+        formatted =
+          String(minutes).padStart(2, "0") +
+          ":" +
+          String(secs).padStart(2, "0");
+      }
+
+      this.bufferedAhead.textContent = "+" + formatted;
+      this.bufferedAhead.hidden = false;
+    }
+
+    // Update the buffered segment drawn on the scrubber track. The
+    // segment spans from the current playback position (see
+    // --pip-scrubber-played-pct) to `position` (0..1).
+    if (position === undefined || !Number.isFinite(position) || position < 0) {
+      this.scrubber.style.removeProperty("--pip-scrubber-buffered-pct");
       return;
     }
 
-    let totalSeconds = Math.floor(seconds);
-    let hours = Math.floor(totalSeconds / 3600);
-    let minutes = Math.floor((totalSeconds % 3600) / 60);
-    let secs = totalSeconds % 60;
-
-    let formatted;
-    if (hours > 0) {
-      formatted =
-        hours +
-        ":" +
-        String(minutes).padStart(2, "0") +
-        ":" +
-        String(secs).padStart(2, "0");
-    } else {
-      formatted =
-        String(minutes).padStart(2, "0") +
-        ":" +
-        String(secs).padStart(2, "0");
+    let played = parseFloat(this.scrubber.value);
+    if (!Number.isFinite(played)) {
+      played = 0;
     }
-
-    this.bufferedAhead.textContent = "+" + formatted;
-    this.bufferedAhead.hidden = false;
+    let bufferedEnd = Math.min(1, Math.max(position, played));
+    this.scrubber.style.setProperty(
+      "--pip-scrubber-buffered-pct",
+      bufferedEnd * 100 + "%"
+    );
   },
 
   setVolume(volume) {

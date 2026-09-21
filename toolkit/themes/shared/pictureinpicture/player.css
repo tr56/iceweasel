@@ -622,6 +622,20 @@ input:checked + .slider::before {
 
   &::-moz-range-track {
     background-color: #969696;
+    /* Draw the buffered (cached) part of the media on the track: from the
+       current playback position (--pip-scrubber-played-pct, kept in sync by
+       player.js) to the end of the buffered range
+       (--pip-scrubber-buffered-pct). When the buffered range is unknown the
+       fallbacks collapse the segment to zero width. */
+    background-image: linear-gradient(
+      to right,
+      transparent 0% var(--pip-scrubber-played-pct, 0%),
+      #d4d4d4 var(--pip-scrubber-played-pct, 0%)
+        var(--pip-scrubber-buffered-pct, var(--pip-scrubber-played-pct, 0%)),
+      transparent
+        var(--pip-scrubber-buffered-pct, var(--pip-scrubber-played-pct, 0%))
+        100%
+    );
   }
 
   &::-moz-range-progress {
