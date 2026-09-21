@@ -143,6 +143,10 @@ function setTimestamp(timeString) {
   Player.setTimestamp(timeString);
 }
 
+function setBufferedAhead(seconds) {
+  Player.setBufferedAhead(seconds);
+}
+
 function setVolume(volume) {
   Player.setVolume(volume);
 }
@@ -681,7 +685,7 @@ let Player = {
     this.timestamp.hidden = timestamp === undefined;
   },
 
-    setBufferedAhead(seconds) {
+  setBufferedAhead(seconds) {
     if (
       seconds === undefined ||
       !Number.isFinite(seconds) ||

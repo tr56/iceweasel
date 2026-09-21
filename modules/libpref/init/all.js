@@ -228,6 +228,9 @@ pref("media.videocontrols.picture-in-picture.video-toggle.has-used", false);
 pref("media.videocontrols.picture-in-picture.display-text-tracks.toggle.enabled", true);
 pref("media.videocontrols.picture-in-picture.display-text-tracks.size", "medium");
 pref("media.videocontrols.picture-in-picture.improved-video-controls.enabled", true);
+// Whether to show the amount of buffered media ahead of the current
+// playback position in the Picture-in-Picture window.
+pref("media.videocontrols.picture-in-picture.show-buffered.enabled", true);
 pref("media.videocontrols.picture-in-picture.respect-disablePictureInPicture", true);
 pref("media.videocontrols.keyboard-tab-to-all-controls", true);
 
