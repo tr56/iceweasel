@@ -1029,7 +1029,7 @@ export var PictureInPicture = {
 
     win.setScrubberPosition(videoData.scrubberPosition);
     win.setTimestamp(videoData.timestamp);
-    win.setBufferedAhead(videoData.bufferedAhead);
+    win.setBufferedAhead(videoData.bufferedAhead, videoData.bufferedPosition);
     win.setVolume(videoData.volume);
 
     Services.prefs.setBoolPref(TOGGLE_HAS_USED_PREF, true);

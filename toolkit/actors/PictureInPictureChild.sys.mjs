@@ -294,6 +294,7 @@ export class PictureInPictureLauncherChild extends JSWindowActorChild {
     let timestamp = undefined;
     let scrubberPosition = undefined;
     let bufferedAhead = undefined;
+    let scrubberBufferedPosition = undefined;
 
     if (lazy.IMPROVED_CONTROLS_ENABLED_PREF) {
       timestamp = PictureInPictureChild.videoWrapper.formatTimestamp(
@@ -313,6 +314,19 @@ export class PictureInPictureLauncherChild extends JSWindowActorChild {
         video,
         PictureInPictureChild.videoWrapper.getCurrentTime(video)
       );
+
+      // Position (0..1) on the scrubber where the buffered range ends,
+      // used to draw the buffered part of the scrubber track. Guard against
+      // unknown or zero durations (live streams, metadata not loaded yet),
+      // which would otherwise produce NaN or Infinity.
+      let duration = PictureInPictureChild.videoWrapper.getDuration(video);
+      scrubberBufferedPosition =
+        bufferedAhead !== undefined &&
+        scrubberPosition !== undefined &&
+        Number.isFinite(duration) &&
+        duration > 0
+          ? Math.min(1, scrubberPosition + bufferedAhead / duration)
+          : undefined;
     }
     
     // All other requests to toggle PiP should open a new PiP
@@ -336,6 +350,7 @@ export class PictureInPictureLauncherChild extends JSWindowActorChild {
       scrubberPosition,
       timestamp,
       bufferedAhead,
+      bufferedPosition: scrubberBufferedPosition,
       volume: PictureInPictureChild.videoWrapper.getVolume(video),
       autoFocus,
     });
@@ -2209,6 +2224,12 @@ export class PictureInPictureChild extends JSWindowActorChild {
           duration
         );
         let bufferedAhead = getBufferedAhead(video, currentTime);
+        let bufferedPosition =
+          bufferedAhead !== undefined &&
+          Number.isFinite(duration) &&
+          duration > 0
+            ? Math.min(1, (currentTime + bufferedAhead) / duration)
+            : undefined;
         // There's no point in sending this message unless we have a
         // reasonable timestamp.
         if (timestamp !== undefined && lazy.IMPROVED_CONTROLS_ENABLED_PREF) {
@@ -2218,6 +2239,7 @@ export class PictureInPictureChild extends JSWindowActorChild {
               scrubberPosition,
               timestamp,
               bufferedAhead,
+              bufferedPosition,
             }
           );
         }
