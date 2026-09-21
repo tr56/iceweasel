@@ -316,15 +316,16 @@ export class PictureInPictureLauncherChild extends JSWindowActorChild {
       );
 
       // Position (0..1) on the scrubber where the buffered range ends,
-      // used to draw the buffered part of the scrubber track.
+      // used to draw the buffered part of the scrubber track. Guard against
+      // unknown or zero durations (live streams, metadata not loaded yet),
+      // which would otherwise produce NaN or Infinity.
+      let duration = PictureInPictureChild.videoWrapper.getDuration(video);
       scrubberBufferedPosition =
-        bufferedAhead !== undefined && scrubberPosition !== undefined
-          ? Math.min(
-              1,
-              scrubberPosition +
-                bufferedAhead /
-                  PictureInPictureChild.videoWrapper.getDuration(video)
-            )
+        bufferedAhead !== undefined &&
+        scrubberPosition !== undefined &&
+        Number.isFinite(duration) &&
+        duration > 0
+          ? Math.min(1, scrubberPosition + bufferedAhead / duration)
           : undefined;
     }
     
