@@ -166,6 +166,53 @@ function getSiteOverrideForDocument(documentURI) {
   return overrides?.[1] ?? null;
 }
 
+/**
+ * Returns how many seconds of media are buffered ahead of the current
+ * playback position, within the buffered range that contains it.
+ * Returns undefined if the feature is disabled or the info is unavailable.
+ *
+ * This is a module-level function (rather than a method of
+ * PictureInPictureChild) so that it can be used by both the launcher
+ * actor (PictureInPictureLauncherChild) and the player actor
+ * (PictureInPictureChild).
+ *
+ * @param {HTMLVideoElement} video
+ *   The video to query.
+ * @param {number} currentTime
+ *   The video's current playback position, in seconds.
+ * @returns {number|undefined}
+ *   Seconds of buffered media ahead of currentTime, or undefined if
+ *   the feature is disabled or the info is unavailable.
+ */
+function getBufferedAhead(video, currentTime) {
+  if (
+    !video ||
+    !Services.prefs.getBoolPref(
+      "media.videocontrols.picture-in-picture.show-buffered.enabled",
+      true
+    )
+  ) {
+    return undefined;
+  }
+  try {
+    let buffered = video.buffered;
+    const TOLERANCE = 0.5;
+    for (let i = 0; i < buffered.length; i++) {
+      let start = buffered.start(i);
+      let end = buffered.end(i);
+      if (
+        currentTime >= start - TOLERANCE &&
+        currentTime <= end + TOLERANCE
+      ) {
+        return Math.max(0, end - currentTime);
+      }
+    }
+    return 0;
+  } catch (e) {
+    return undefined;
+  }
+}
+
 export class PictureInPictureLauncherChild extends JSWindowActorChild {
   handleEvent(event) {
     switch (event.type) {
@@ -262,7 +309,7 @@ export class PictureInPictureLauncherChild extends JSWindowActorChild {
           : PictureInPictureChild.videoWrapper.getCurrentTime(video) /
             PictureInPictureChild.videoWrapper.getDuration(video);
 
-      bufferedAhead = this.getBufferedAhead(
+      bufferedAhead = getBufferedAhead(
         video,
         PictureInPictureChild.videoWrapper.getCurrentTime(video)
       );
@@ -2033,40 +2080,6 @@ export class PictureInPictureChild extends JSWindowActorChild {
     return true;
   }
 
-  /**
-   * Returns how many seconds of media are buffered ahead of the current
-   * playback position, within the buffered range that contains it.
-   * Returns undefined if the feature is disabled or the info is unavailable.
-   */
-  getBufferedAhead(video, currentTime) {
-    if (
-      !video ||
-      !Services.prefs.getBoolPref(
-        "media.videocontrols.picture-in-picture.show-buffered.enabled",
-        true
-      )
-    ) {
-      return undefined;
-    }
-    try {
-      let buffered = video.buffered;
-      const TOLERANCE = 0.5;
-      for (let i = 0; i < buffered.length; i++) {
-        let start = buffered.start(i);
-        let end = buffered.end(i);
-        if (
-          currentTime >= start - TOLERANCE &&
-          currentTime <= end + TOLERANCE
-        ) {
-          return Math.max(0, end - currentTime);
-        }
-      }
-      return 0;
-    } catch (e) {
-      return undefined;
-    }
-  }
-  
   handleEvent(event) {
     switch (event.type) {
       case "MozStopPictureInPicture": {
@@ -2195,7 +2208,7 @@ export class PictureInPictureChild extends JSWindowActorChild {
           currentTime,
           duration
         );
-        let bufferedAhead = this.getBufferedAhead(video, currentTime);
+        let bufferedAhead = getBufferedAhead(video, currentTime);
         // There's no point in sending this message unless we have a
         // reasonable timestamp.
         if (timestamp !== undefined && lazy.IMPROVED_CONTROLS_ENABLED_PREF) {
