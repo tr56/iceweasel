@@ -3,11 +3,15 @@ name: Build Iceweasel 154.0.1 PiP Buffer
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   APP_NAME: Iceweasel
   ACTIONS_PGO_GENERATE: 2
   MOZ_FETCHES_DIR: /builds/worker/fetches
   MOZBUILD_DOWNLOAD: /builds/worker/fetches/download
+  LIBPORTABLE_COMMIT: 4a604048c39e27c55bee019d66d5774ba0d4065c
 
 jobs:
   fx_win_build:
@@ -72,7 +76,6 @@ jobs:
           cd "$GITHUB_WORKSPACE"
 
           MY_VER=$(cat browser/config/version_display.txt)
-
           echo "MY_VER=$MY_VER" >> "$GITHUB_ENV"
 
           echo "Iceweasel version: $MY_VER"
@@ -97,104 +100,124 @@ jobs:
 
           cd "$MOZBUILD_DOWNLOAD"
 
-          echo "=== cbindgen ==="
-          wget \
+          fetch_extract() {
+            local label="$1"
+            local url="$2"
+            local archive="$3"
+            local destination="$4"
+
+            echo
+            echo "=== $label ==="
+
+            wget \
+              --tries=3 \
+              --waitretry=5 \
+              --retry-connrefused \
+              "$url" \
+              -O "$archive"
+
+            tar Jxf "$archive" -C "$destination"
+          }
+
+          fetch_extract \
+            "cbindgen" \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/cbindgen.tar.xz?viasf=1" \
-            -O cbindgen.tar.xz
-          tar Jxf cbindgen.tar.xz -C /home/runner/.mozbuild
+            "cbindgen.tar.xz" \
+            "/home/runner/.mozbuild"
           chmod -R 755 /home/runner/.mozbuild/cbindgen
 
-          echo "=== nasm ==="
-          wget \
+          fetch_extract \
+            "nasm" \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/nasm.tar.xz?viasf=1" \
-            -O nasm.tar.xz
-          tar Jxf nasm.tar.xz -C /home/runner/.mozbuild
+            "nasm.tar.xz" \
+            "/home/runner/.mozbuild"
           chmod -R 755 /home/runner/.mozbuild/nasm
 
-          echo "=== rust-size ==="
-          wget \
+          fetch_extract \
+            "rust-size" \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/rust-size.tar.xz?viasf=1" \
-            -O rust-size.tar.xz
-          tar Jxf rust-size.tar.xz -C /home/runner/.mozbuild
+            "rust-size.tar.xz" \
+            "/home/runner/.mozbuild"
           chmod -R 755 /home/runner/.mozbuild/rust-size
 
-          echo "=== winchecksec ==="
-          wget \
+          fetch_extract \
+            "winchecksec" \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/winchecksec.tar.xz?viasf=1" \
-            -O winchecksec.tar.xz
-          tar Jxf winchecksec.tar.xz -C /home/runner/.mozbuild
+            "winchecksec.tar.xz" \
+            "/home/runner/.mozbuild"
           chmod -R 755 /home/runner/.mozbuild/winchecksec
 
-          echo "=== dump_syms ==="
-          wget \
+          fetch_extract \
+            "dump_syms" \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/dump_syms.tar.xz?viasf=1" \
-            -O dump_syms.tar.xz
-          tar Jxf dump_syms.tar.xz -C /home/runner/.mozbuild
+            "dump_syms.tar.xz" \
+            "/home/runner/.mozbuild"
           chmod -R 755 /home/runner/.mozbuild/dump_syms
 
-          echo "=== dxc ==="
-          wget \
+          fetch_extract \
+            "dxc" \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/dxc.tar.xz?viasf=1" \
-            -O dxc.tar.xz
-          tar Jxf dxc.tar.xz -C /home/runner/.mozbuild
+            "dxc.tar.xz" \
+            "/home/runner/.mozbuild"
 
-          echo "=== 7zz ==="
-          wget \
+          fetch_extract \
+            "7zz" \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/7zz.tar.xz?viasf=1" \
-            -O 7zz.tar.xz
-          tar Jxf 7zz.tar.xz -C "$MOZ_FETCHES_DIR"
+            "7zz.tar.xz" \
+            "$MOZ_FETCHES_DIR"
           chmod -R 755 "$MOZ_FETCHES_DIR/7zz"
 
-          echo "=== sccache ==="
-          wget \
+          fetch_extract \
+            "sccache" \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/sccache.tar.xz?viasf=1" \
-            -O sccache.tar.xz
-          tar Jxf sccache.tar.xz -C "$MOZ_FETCHES_DIR"
+            "sccache.tar.xz" \
+            "$MOZ_FETCHES_DIR"
           chmod -R 755 "$MOZ_FETCHES_DIR/sccache"
 
-          echo "=== clang ==="
-          wget \
+          fetch_extract \
+            "clang" \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/clang21.tar.xz?viasf=1" \
-            -O clang.tar.xz
-          tar Jxf clang.tar.xz -C "$MOZ_FETCHES_DIR"
+            "clang.tar.xz" \
+            "$MOZ_FETCHES_DIR"
 
-          echo "=== DIA SDK ==="
-          wget \
+          fetch_extract \
+            "DIA SDK" \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/diasdk2026.tar.xz?viasf=1" \
-            -O diasdk.tar.xz
-          tar Jxf diasdk.tar.xz -C "$MOZ_FETCHES_DIR"
+            "diasdk.tar.xz" \
+            "$MOZ_FETCHES_DIR"
 
-          echo "=== upcheck ==="
-          wget \
+          fetch_extract \
+            "upcheck" \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/upcheck.tar.xz?viasf=1" \
-            -O upcheck.tar.xz
-          tar Jxf upcheck.tar.xz -C "$MOZ_FETCHES_DIR/clang"
+            "upcheck.tar.xz" \
+            "$MOZ_FETCHES_DIR/clang"
 
-          echo "=== onnxruntime ==="
-          wget \
+          fetch_extract \
+            "onnxruntime" \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/onnxruntime.tar.xz?viasf=1" \
-            -O onnxruntime.tar.xz
-          tar Jxf onnxruntime.tar.xz -C "$MOZ_FETCHES_DIR"
+            "onnxruntime.tar.xz" \
+            "$MOZ_FETCHES_DIR"
 
-          echo "=== Rust ==="
-          wget \
+          fetch_extract \
+            "Rust" \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/rust194.tar.xz?viasf=1" \
-            -O rust.tar.xz
-          tar Jxf rust.tar.xz -C "$MOZ_FETCHES_DIR"
+            "rust.tar.xz" \
+            "$MOZ_FETCHES_DIR"
           chmod -R 755 "$MOZ_FETCHES_DIR/rust"
 
-          echo "=== Visual Studio ==="
-          wget \
+          fetch_extract \
+            "Visual Studio" \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/vs2026.tar.xz?viasf=1" \
-            -O vs.tar.xz
-          tar Jxf vs.tar.xz -C "$MOZ_FETCHES_DIR"
+            "vs.tar.xz" \
+            "$MOZ_FETCHES_DIR"
 
-          echo "=== Windows Rust bindings ==="
-          wget \
+          fetch_extract \
+            "Windows Rust bindings" \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/windows-rs.tar.xz?viasf=1" \
-            -O windows-rs.tar.xz
-          tar Jxf windows-rs.tar.xz -C "$MOZ_FETCHES_DIR"
+            "windows-rs.tar.xz" \
+            "$MOZ_FETCHES_DIR"
 
+          echo
           echo "=== l10n ==="
           git clone \
             --branch release \
@@ -203,11 +226,11 @@ jobs:
             "$MOZ_FETCHES_DIR/l10n"
           chmod -R 755 "$MOZ_FETCHES_DIR/l10n"
 
-          echo "=== Wine ==="
-          wget \
+          fetch_extract \
+            "Wine" \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/wine.tar.xz?viasf=1" \
-            -O wine.tar.xz
-          tar Jxf wine.tar.xz -C "$MOZ_FETCHES_DIR"
+            "wine.tar.xz" \
+            "$MOZ_FETCHES_DIR"
 
           echo
           echo "========================================"
@@ -215,11 +238,13 @@ jobs:
           echo "========================================"
 
           wget \
+            --tries=3 \
+            --waitretry=5 \
+            --retry-connrefused \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/winsdk2026.tar.xz?viasf=1" \
             -O winsdk.tar.xz
 
           WINSDK_TEMP="$MOZ_FETCHES_DIR/winsdk-extract"
-
           rm -rf "$WINSDK_TEMP"
           mkdir -p "$WINSDK_TEMP"
 
@@ -228,65 +253,54 @@ jobs:
           mkdir -p "$MOZ_FETCHES_DIR/vs"
 
           if [ -d "$WINSDK_TEMP/vs/Windows Kits" ]; then
-
             echo "Detected winsdk layout: vs/Windows Kits"
 
-            rm -rf \
-              "$MOZ_FETCHES_DIR/vs/Windows Kits"
+            rm -rf "$MOZ_FETCHES_DIR/vs/Windows Kits"
 
             cp -a \
               "$WINSDK_TEMP/vs/Windows Kits" \
               "$MOZ_FETCHES_DIR/vs/"
-
           elif [ -d "$WINSDK_TEMP/Windows Kits" ]; then
-
             echo "Detected winsdk layout: Windows Kits"
 
-            rm -rf \
-              "$MOZ_FETCHES_DIR/vs/Windows Kits"
+            rm -rf "$MOZ_FETCHES_DIR/vs/Windows Kits"
 
             cp -a \
               "$WINSDK_TEMP/Windows Kits" \
               "$MOZ_FETCHES_DIR/vs/"
-
           else
-
             echo "ERROR: Windows Kits not found in winsdk archive."
 
             find "$WINSDK_TEMP" \
               -maxdepth 6 \
               -type d \
-              -print | sort
+              -print \
+              | sort
 
             exit 1
           fi
 
           rm -rf "$WINSDK_TEMP"
+          chmod -R 755 "$MOZ_FETCHES_DIR/vs"
 
-          chmod -R 755 \
-            "$MOZ_FETCHES_DIR/vs"
-
-          echo
-          echo "=== Windows App SDK ==="
-
-          wget \
+          fetch_extract \
+            "Windows App SDK" \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/winappsdk-x64.tar.xz?viasf=1" \
-            -O winappsdk-x64.tar.xz
-          tar Jxf winappsdk-x64.tar.xz -C "$MOZ_FETCHES_DIR"
+            "winappsdk-x64.tar.xz" \
+            "$MOZ_FETCHES_DIR"
 
-          echo
-          echo "=== UPX ==="
-
-          wget \
+          fetch_extract \
+            "UPX" \
             "https://master.dl.sourceforge.net/project/libportable/Mozillabuild/upx.tar.xz?viasf=1" \
-            -O upx.tar.xz
-          tar Jxf upx.tar.xz -C "$MOZ_FETCHES_DIR"
+            "upx.tar.xz" \
+            "$MOZ_FETCHES_DIR"
           chmod -R 755 "$MOZ_FETCHES_DIR/upx-win64"
 
           rm -rf "$MOZBUILD_DOWNLOAD"
 
           echo
           echo "Toolchain download complete."
+          df -hT
 
       - name: Detect and prepare Windows SDK and MSVC
         shell: bash
@@ -323,14 +337,11 @@ jobs:
           test -d "$SDK_ROOT/Lib/$WINSDK_VERSION"
 
           echo
-          echo "=== Normalize Windows.h filename ==="
+          echo "=== Normalize Windows.h filename for Linux ==="
 
           if [ -f "$SDK/um/Windows.h" ] &&
              [ ! -e "$SDK/um/windows.h" ]; then
-
-            ln -s \
-              Windows.h \
-              "$SDK/um/windows.h"
+            ln -s Windows.h "$SDK/um/windows.h"
           fi
 
           if [ ! -f "$SDK/um/windows.h" ]; then
@@ -341,8 +352,7 @@ jobs:
 
           ls -lh "$SDK/um/windows.h"
 
-          echo "WINSDK_VERSION=$WINSDK_VERSION" \
-            >> "$GITHUB_ENV"
+          echo "WINSDK_VERSION=$WINSDK_VERSION" >> "$GITHUB_ENV"
 
           echo
           echo "=== Detect MSVC ==="
@@ -365,18 +375,24 @@ jobs:
           fi
 
           MSVC_INCLUDE="$MSVC_ROOT/$MSVC_VERSION/include"
+          MSVC_LIB="$MSVC_ROOT/$MSVC_VERSION/lib/x64"
+          MSVC_ATLMFC_LIB="$MSVC_ROOT/$MSVC_VERSION/atlmfc/lib/x64"
 
           echo "MSVC_VERSION=$MSVC_VERSION"
           echo "MSVC_INCLUDE=$MSVC_INCLUDE"
+          echo "MSVC_LIB=$MSVC_LIB"
+          echo "MSVC_ATLMFC_LIB=$MSVC_ATLMFC_LIB"
 
           test -f "$MSVC_INCLUDE/excpt.h"
           test -f "$MSVC_INCLUDE/vcruntime.h"
 
-          echo "MSVC_VERSION=$MSVC_VERSION" \
-            >> "$GITHUB_ENV"
+          test -d "$MSVC_LIB"
+          test -d "$MSVC_ATLMFC_LIB"
 
-          echo "MSVC_INCLUDE=$MSVC_INCLUDE" \
-            >> "$GITHUB_ENV"
+          echo "MSVC_VERSION=$MSVC_VERSION" >> "$GITHUB_ENV"
+          echo "MSVC_INCLUDE=$MSVC_INCLUDE" >> "$GITHUB_ENV"
+          echo "MSVC_LIB=$MSVC_LIB" >> "$GITHUB_ENV"
+          echo "MSVC_ATLMFC_LIB=$MSVC_ATLMFC_LIB" >> "$GITHUB_ENV"
 
           echo
           echo "=== Locate DriverSpecs.h ==="
@@ -390,18 +406,15 @@ jobs:
           )
 
           if [ -n "$DRIVER_SPECS" ]; then
-
             DRIVER_SPECS_DIR=$(dirname "$DRIVER_SPECS")
 
             echo "DriverSpecs.h:"
             echo "$DRIVER_SPECS"
 
-            echo "DRIVER_SPECS_DIR=$DRIVER_SPECS_DIR" \
-              >> "$GITHUB_ENV"
-
+            echo "DRIVER_SPECS_DIR=$DRIVER_SPECS_DIR" >> "$GITHUB_ENV"
           else
-
             echo "WARNING: DriverSpecs.h not found."
+            echo "DRIVER_SPECS_DIR=" >> "$GITHUB_ENV"
           fi
 
       - name: Patch toolchain SDK configuration
@@ -410,11 +423,9 @@ jobs:
           set -e
 
           OVERLAY="$MOZ_FETCHES_DIR/vs/overlay.yaml"
-
           test -f "$OVERLAY"
 
           echo "SDK versions in overlay before patch:"
-
           grep -oE \
             '10\.0\.[0-9]+\.0' \
             "$OVERLAY" \
@@ -426,7 +437,6 @@ jobs:
 
           echo
           echo "SDK versions in overlay after patch:"
-
           grep -oE \
             '10\.0\.[0-9]+\.0' \
             "$OVERLAY" \
@@ -435,7 +445,6 @@ jobs:
           if grep -q \
             '10\.0\.28000\.0' \
             "$OVERLAY"; then
-
             echo "ERROR: stale SDK 10.0.28000.0 remains in overlay."
             exit 1
           fi
@@ -467,9 +476,7 @@ jobs:
             -c
             /tmp/test-windows.cpp
             -o /tmp/test-windows.obj
-
             -Wno-nonportable-include-path
-
             -I"$MSVC_INCLUDE"
             -I"$SDK/shared"
             -I"$SDK/um"
@@ -504,13 +511,40 @@ jobs:
 
           export PATH="$MOZ_FETCHES_DIR/clang/bin:$MOZ_FETCHES_DIR/rust/bin:$PATH"
 
+          echo "=== Verify actual MSVC linker libraries ==="
+          echo "MSVC include: $MSVC_INCLUDE"
+          echo "MSVC lib:     $MSVC_LIB"
+          echo "ATLMFC lib:   $MSVC_ATLMFC_LIB"
+
+          test -f "$MSVC_INCLUDE/excpt.h"
+          test -f "$MSVC_INCLUDE/vcruntime.h"
+          test -d "$MSVC_LIB"
+          test -d "$MSVC_ATLMFC_LIB"
+
+          for library in msvcrt.lib oldnames.lib libcmt.lib; do
+            if [ ! -f "$MSVC_LIB/$library" ]; then
+              echo "ERROR: required MSVC library is missing:"
+              echo "$MSVC_LIB/$library"
+              ls -lah "$MSVC_LIB" || true
+              exit 1
+            fi
+
+            echo "Found: $MSVC_LIB/$library"
+          done
+
+          echo
+          echo "=== Clone pinned libportable ==="
+
           cd "$MOZ_FETCHES_DIR"
+          rm -rf libportable
 
           git clone \
-            --depth=1 \
-            https://github.com/adonais/libportable.git
+            https://github.com/adonais/libportable.git \
+            libportable
 
           cd libportable
+
+          git checkout --detach "$LIBPORTABLE_COMMIT"
 
           echo "libportable commit:"
           git rev-parse HEAD
@@ -522,190 +556,118 @@ jobs:
             "s/10\.0\.28000\.0/$WINSDK_VERSION/g" \
             ./build
 
-          if grep -q \
-            '10\.0\.28000\.0' \
-            ./build; then
-
+          if grep -q '10\.0\.28000\.0' ./build; then
             echo "ERROR: stale SDK version remains in libportable/build."
             exit 1
           fi
 
-          echo "libportable SDK settings:"
+          grep -n 'sdk_version' ./build || true
 
-          grep -n \
-            'sdk_version' \
+          echo
+          echo "=== Patch stale MSVC linker toolset version ==="
+          echo "Installed MSVC toolset: $MSVC_VERSION"
+          echo "Replacing old toolset 14.51.36231 where needed."
+
+          grep -RIn \
+            --exclude-dir=.git \
+            '14\.51\.36231' \
+            . || true
+
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+
+            echo "Patching MSVC toolset in: $file"
+
+            sed -i \
+              "s/14\.51\.36231/$MSVC_VERSION/g" \
+              "$file"
+          done < <(
+            grep -RIl \
+              --exclude-dir=.git \
+              '14\.51\.36231' \
+              . || true
+          )
+
+          if grep -RIn \
+            --exclude-dir=.git \
+            '14\.51\.36231' \
+            .; then
+            echo "ERROR: stale MSVC 14.51.36231 references remain."
+            exit 1
+          fi
+
+          echo
+          echo "libportable toolset settings after patch:"
+          grep -nE \
+            'sdk_version|vc_version|VC/Tools/MSVC|14\.' \
             ./build || true
 
           echo
-          echo "=== Verify MSVC headers ==="
-
-          test -f "$MSVC_INCLUDE/excpt.h"
-          test -f "$MSVC_INCLUDE/vcruntime.h"
-
-          echo "MSVC include:"
-          echo "$MSVC_INCLUDE"
+          echo "=== Patch Makefiles with MSVC include ==="
 
           export MSVC_INCLUDE
 
-          echo
-          echo "=== Find Makefiles using clang-cl ==="
+          PATCH_TARGETS=0
 
-          mapfile -t CLANG_MAKEFILES < <(
-            grep -RIl \
-              --include='Makefile' \
-              --include='*.mk' \
-              'clang-cl' \
-              .
+          while IFS= read -r makefile; do
+            [ -z "$makefile" ] && continue
+
+            if [ "$makefile" = "./Makefile" ] ||
+               grep -q 'clang-cl' "$makefile"; then
+              PATCH_TARGETS=$((PATCH_TARGETS + 1))
+
+              echo "Processing: $makefile"
+
+              if ! grep -Fq \
+                'CFLAGS += -I"$(MSVC_INCLUDE)"' \
+                "$makefile"; then
+                cat >> "$makefile" <<'EOF'
+
+          # Added by GitHub Actions workflow: MSVC CRT/C++ headers.
+          CFLAGS += -I"$(MSVC_INCLUDE)"
+          EOF
+              fi
+
+              if ! grep -Fq \
+                'CFLAGS += -I"$(MSVC_INCLUDE)"' \
+                "$makefile"; then
+                echo "ERROR: failed to add MSVC include to:"
+                echo "$makefile"
+                exit 1
+              fi
+            fi
+          done < <(
+            find . \
+              -type f \
+              \( -name Makefile -o -name '*.mk' \) \
+              -print
           )
 
-          if [ "${#CLANG_MAKEFILES[@]}" -eq 0 ]; then
-            echo "ERROR: no Makefiles using clang-cl were found."
-            exit 1
-          fi
-
-          printf '%s\n' "${CLANG_MAKEFILES[@]}"
-
-          echo
-          echo "=== Patch all clang-cl Makefiles with MSVC include ==="
-
-          for makefile in "${CLANG_MAKEFILES[@]}"; do
-
-            echo
-            echo "Processing: $makefile"
-
-            if grep -Fq \
-              'CFLAGS += -I"$(MSVC_INCLUDE)"' \
-              "$makefile"; then
-
-              echo "Already patched."
-              continue
-            fi
-
-            if grep -q \
-              'CFLAGS += -D_CRT_SECURE_NO_WARNINGS' \
-              "$makefile"; then
-
-              sed -i \
-                '/CFLAGS += -D_CRT_SECURE_NO_WARNINGS/a CFLAGS += -I"$(MSVC_INCLUDE)"' \
-                "$makefile"
-
-            elif grep -q \
-              '^CFLAGS' \
-              "$makefile"; then
-
-              sed -i \
-                '/^CFLAGS/a CFLAGS += -I"$(MSVC_INCLUDE)"' \
-                "$makefile"
-
-            else
-
-              echo 'CFLAGS += -I"$(MSVC_INCLUDE)"' \
-                >> "$makefile"
-            fi
-
-            if ! grep -Fq \
-              'CFLAGS += -I"$(MSVC_INCLUDE)"' \
-              "$makefile"; then
-
-              echo "ERROR: failed to patch $makefile"
-              exit 1
-            fi
-
-            echo "Patched:"
-            grep -Fn \
-              'CFLAGS += -I"$(MSVC_INCLUDE)"' \
-              "$makefile"
-          done
-
-          echo
-          echo "=== Patch root Makefile explicitly ==="
-
-          if [ ! -f Makefile ]; then
-            echo "ERROR: root Makefile not found."
-            exit 1
-          fi
-
-          if ! grep -Fq \
-            'CFLAGS += -I"$(MSVC_INCLUDE)"' \
-            Makefile; then
-
-            if grep -q \
-              'CFLAGS += -D_CRT_SECURE_NO_WARNINGS' \
-              Makefile; then
-
-              sed -i \
-                '/CFLAGS += -D_CRT_SECURE_NO_WARNINGS/a CFLAGS += -I"$(MSVC_INCLUDE)"' \
-                Makefile
-            else
-
-              sed -i \
-                '1i CFLAGS += -I"$(MSVC_INCLUDE)"' \
-                Makefile
-            fi
-          fi
-
-          echo
-          echo "Root Makefile MSVC include:"
-
-          grep -Fn \
-            'CFLAGS += -I"$(MSVC_INCLUDE)"' \
-            Makefile
-
-          echo
-          echo "=== Verify all clang-cl Makefiles ==="
-
-          FAILED=0
-
-          for makefile in "${CLANG_MAKEFILES[@]}"; do
-
-            if ! grep -Fq \
-              'CFLAGS += -I"$(MSVC_INCLUDE)"' \
-              "$makefile"; then
-
-              echo "Missing MSVC include: $makefile"
-              FAILED=1
-            fi
-          done
-
-          if [ "$FAILED" -ne 0 ]; then
-            echo "ERROR: not all clang-cl Makefiles were patched."
+          if [ "$PATCH_TARGETS" -eq 0 ]; then
+            echo "ERROR: no Makefiles were selected for patching."
             exit 1
           fi
 
           echo
-          echo "MSVC_INCLUDE exported to make:"
-          env | grep '^MSVC_INCLUDE='
+          echo "=== Patched Makefile entries ==="
+          grep -RIn \
+            --include='Makefile' \
+            --include='*.mk' \
+            'MSVC_INCLUDE' \
+            . || true
 
           echo
-          echo "=== Relevant root Makefile section ==="
-
-          grep -n \
-            -E 'CFLAGS|clang-cl|MSVC_INCLUDE|Windows Kits' \
-            Makefile \
-            | head -100 || true
-
-          echo
-          echo "=== Relevant MinHook Makefile section ==="
-
-          grep -n \
-            -E 'CFLAGS|clang-cl|MSVC_INCLUDE|Windows Kits' \
-            src/minhook/Makefile \
-            | head -100 || true
-
-          echo
-          echo "=== Building libportable ==="
+          echo "=== Build libportable ==="
 
           chmod +x ./build
-
           ./build PGO_GEN=1
 
           echo
-          echo "=== Installing libportable ==="
+          echo "=== Install libportable ==="
 
           ./build install
 
           cd "$MOZ_FETCHES_DIR"
-
           rm -rf libportable
 
       - name: Build Iceweasel win64
@@ -731,7 +693,6 @@ jobs:
 
           echo
           echo "Verify PiP patch:"
-
           grep -n \
             'getBufferedAhead' \
             toolkit/actors/PictureInPictureChild.sys.mjs \
@@ -739,11 +700,9 @@ jobs:
 
           echo
           echo "Disk before build:"
-
           df -hT
 
           chmod +x ./fx_pgo_generate.sh
-
           ./fx_pgo_generate.sh 64
 
           dist_dir=$(
@@ -751,20 +710,15 @@ jobs:
             pwd
           )
 
-          echo "MY_BITS64=win64" \
-            >> "$GITHUB_ENV"
-
-          echo "MY_DIST64=$dist_dir" \
-            >> "$GITHUB_ENV"
+          echo "MY_BITS64=win64" >> "$GITHUB_ENV"
+          echo "MY_DIST64=$dist_dir" >> "$GITHUB_ENV"
 
           echo
           echo "Build output:"
-
           ls -lah "$dist_dir"
 
           echo
           echo "Disk after build:"
-
           df -hT
 
       - name: Verify package
@@ -778,17 +732,13 @@ jobs:
           echo "$PACKAGE"
 
           if [ ! -f "$PACKAGE" ]; then
-
             echo "ERROR: package not found."
-
             ls -lah "$MY_DIST64" || true
-
             exit 1
           fi
 
           echo
           echo "Package found:"
-
           ls -lh "$PACKAGE"
 
       - name: Upload Iceweasel PiP Buffer build
