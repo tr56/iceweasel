@@ -200,14 +200,14 @@ export class PictureInPictureParent extends JSWindowActorParent {
         break;
       }
         case "PictureInPicture:SetTimestampAndScrubberPosition": {
-        let { timestamp, scrubberPosition, bufferedAhead } = aMessage.data;
+        let { timestamp, scrubberPosition, bufferedAhead, bufferedPosition } = aMessage.data;
         let player = PictureInPicture.getWeakPipPlayer(this);
         // The player window may already be closed by the time this async
         // message arrives, in which case there is nothing to update.
         if (player) {
           player.setTimestamp(timestamp);
           player.setScrubberPosition(scrubberPosition);
-          player.setBufferedAhead(bufferedAhead);
+          player.setBufferedAhead(bufferedAhead, bufferedPosition);
         }
         break;
       }
